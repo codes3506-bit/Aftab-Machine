@@ -1,0 +1,343 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+</head>
+<body>
+<title>Slow Clocks</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=Inter:wght@400;500;600&display=swap">
+<style>
+/* Layout: a dark observation deck — the 3D scene is the hero, HUD readouts in its corners, simple-words explainer below.
+   Deliberately single-theme (space at night). */
+:root {
+  color-scheme: dark;
+  --bg: #070b14;
+  --surface: #0f1626;
+  --surface-2: #17213a;
+  --line: #24304d;
+  --fg: #e8edf7;
+  --muted: #93a0bb;
+  --earth: #5ec8ff;      /* Earth clock */
+  --rocket: #ffb547;     /* rocket clock */
+  --light: #fff6c9;      /* the photon */
+  --display: "Chakra Petch", "Segoe UI", system-ui, sans-serif;
+  --body: "Inter", system-ui, -apple-system, sans-serif;
+}
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--fg); font: 15px/1.6 var(--body); }
+.gut { padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.wrap { max-width: 1100px; margin: 0 auto; }
+header { padding-block: 22px 14px; }
+h1 { font: 700 clamp(28px, 5vw, 44px)/1.05 var(--display); margin: 0; letter-spacing: .01em; text-wrap: balance; }
+.lede { color: var(--muted); margin: 8px 0 0; max-width: 62ch; }
+.lede b { color: var(--fg); font-weight: 600; }
+
+/* stage */
+.stage { position: relative; height: min(62vh, 560px); min-height: 360px; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: radial-gradient(ellipse at 50% 120%, #14234a 0%, var(--bg) 65%); touch-action: none; }
+.stage canvas, .stage video { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.stage video { object-fit: cover; }
+.hud { position: absolute; top: 12px; display: grid; gap: 2px; padding: 8px 12px; border-radius: 8px; background: rgba(7, 11, 20, .72); border: 1px solid var(--line); pointer-events: none; min-width: 150px; }
+.hud.l { left: 12px; border-color: color-mix(in srgb, var(--earth) 50%, transparent); }
+.hud.r { right: 12px; border-color: color-mix(in srgb, var(--rocket) 50%, transparent); text-align: right; }
+.hud .k { font: 600 11px var(--display); letter-spacing: .14em; text-transform: uppercase; }
+.hud.l .k { color: var(--earth); } .hud.r .k { color: var(--rocket); }
+.hud .t { font: 600 26px/1.1 var(--display); font-variant-numeric: tabular-nums; }
+.hud .s { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.stage-foot { position: absolute; left: 12px; right: 12px; bottom: 10px; display: flex; justify-content: space-between; align-items: end; gap: 10px; flex-wrap: wrap; pointer-events: none; }
+.hint { font-size: 12px; color: var(--muted); background: rgba(7, 11, 20, .6); padding: 3px 8px; border-radius: 4px; }
+.stage-foot button { pointer-events: auto; }
+.armsg { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(420px, calc(100% - 32px)); background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 16px; font-size: 14px; }
+.armsg b { color: var(--rocket); }
+
+/* controls */
+.controls { display: grid; gap: 10px; padding-block: 16px 4px; }
+.speedrow { display: grid; grid-template-columns: auto 1fr auto; gap: 14px; align-items: center; }
+.speedrow label { font: 600 12px var(--display); letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+input[type=range] { width: 100%; accent-color: var(--rocket); }
+.speedval { font: 700 22px var(--display); color: var(--rocket); min-width: 7.5em; text-align: right; font-variant-numeric: tabular-nums; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+button { font: 500 13px var(--body); color: var(--fg); background: var(--surface-2); border: 1px solid var(--line); border-radius: 999px; padding: 6px 12px; cursor: pointer; }
+button:hover { border-color: var(--muted); }
+button.on { background: var(--rocket); border-color: var(--rocket); color: #1b1203; }
+button.ar { border-radius: 6px; background: var(--earth); border-color: var(--earth); color: #04121c; font-weight: 600; }
+button:focus-visible, input:focus-visible { outline: 2px solid var(--light); outline-offset: 2px; }
+
+/* verdict */
+.verdict { margin-top: 14px; padding: 16px 18px; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); gap: 18px; }
+.verdict p { margin: 0; font-size: 17px; }
+.verdict p .e { color: var(--earth); font-weight: 600; } .verdict p .r { color: var(--rocket); font-weight: 600; }
+.facts { display: grid; grid-template-columns: 1fr auto; gap: 4px 14px; font-size: 13px; color: var(--muted); align-self: center; }
+.facts b { color: var(--fg); font: 600 14px var(--display); text-align: right; font-variant-numeric: tabular-nums; }
+@media (max-width: 760px) { .verdict { grid-template-columns: minmax(0, 1fr); } .speedrow { grid-template-columns: 1fr auto; } .speedrow label { grid-column: 1 / -1; } .hud .t { font-size: 20px; } .hud { min-width: 0; } }
+
+/* explainer */
+h2 { font: 700 24px var(--display); margin: 38px 0 6px; }
+.sub { color: var(--muted); margin: 0 0 16px; max-width: 62ch; }
+.steps { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 12px; }
+.step { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 16px; min-width: 0; }
+.step .n { font: 700 13px var(--display); color: var(--light); letter-spacing: .1em; }
+.step h3 { font: 600 17px/1.3 var(--display); margin: 4px 0 6px; }
+.step p { margin: 0; color: var(--muted); font-size: 14px; }
+.step svg { width: 100%; height: auto; margin-top: 10px; display: block; }
+.real { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 12px; }
+.real div { border-top: 2px solid var(--line); padding-top: 10px; }
+.real b { font: 600 16px var(--display); display: block; }
+.real span { color: var(--muted); font-size: 14px; }
+footer { color: var(--muted); font-size: 12px; padding-block: 36px 28px; }
+@media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto; } }
+</style>
+
+<div class="gut">
+<div class="wrap">
+  <header>
+    <h1>Slow Clocks</h1>
+    <p class="lede">Time does not tick at the same rate for everyone. <b>The faster you move, the slower your clock runs</b> compared with someone standing still. Push the rocket faster and watch its clock fall behind Earth's.</p>
+  </header>
+
+  <div class="stage" id="stage">
+    <video id="cam" playsinline muted hidden></video>
+    <div class="hud l"><span class="k">Earth clock</span><span class="t" id="te">0.0 s</span><span class="s" id="tke">0 ticks</span></div>
+    <div class="hud r"><span class="k">Rocket clock</span><span class="t" id="tr">0.0 s</span><span class="s" id="tkr">0 ticks</span></div>
+    <div class="stage-foot">
+      <span class="hint" id="hint">Drag to look around · pinch or scroll to zoom</span>
+      <button class="ar" id="arBtn">View in AR</button>
+    </div>
+    <div class="armsg" id="armsg" hidden></div>
+  </div>
+
+  <div class="controls">
+    <div class="speedrow">
+      <label for="speed">Rocket speed</label>
+      <input id="speed" type="range" min="0" max="1000" step="1" value="477">
+      <span class="speedval" id="speedval"></span>
+    </div>
+    <div class="chips" id="chips"></div>
+  </div>
+
+  <div class="verdict">
+    <p id="verdict"></p>
+    <div class="facts">
+      <span>Slow-down factor (γ)</span><b id="gamma"></b>
+      <span>Rocket loses per Earth day</span><b id="perday"></b>
+      <span>10 rocket years =</span><b id="tenyr"></b>
+    </div>
+  </div>
+
+  <h2>Time dilation in simple words</h2>
+  <p class="sub">Four steps. No equations needed, only one rule about light.</p>
+  <div class="steps">
+    <div class="step">
+      <span class="n">STEP 1</span>
+      <h3>Light has a speed limit that never changes</h3>
+      <p>Light always travels at about 300,000 km per second. Everyone who measures it gets the same answer, whether they are standing still or flying in a rocket.</p>
+    </div>
+    <div class="step">
+      <span class="n">STEP 2</span>
+      <h3>Build a clock out of light</h3>
+      <p>Put two mirrors facing each other and bounce a flash of light between them. Each trip up and back is one tick. That is the glowing dot in both clocks above.</p>
+      <svg viewBox="0 0 200 70" aria-hidden="true"><rect x="70" y="6" width="60" height="4" rx="2" fill="#93a0bb"/><rect x="70" y="60" width="60" height="4" rx="2" fill="#93a0bb"/><line x1="100" y1="12" x2="100" y2="58" stroke="#5ec8ff" stroke-width="2" stroke-dasharray="4 4"/><circle cx="100" cy="35" r="5" fill="#fff6c9"/></svg>
+    </div>
+    <div class="step">
+      <span class="n">STEP 3</span>
+      <h3>Seen from Earth, the rocket's light takes a longer path</h3>
+      <p>The rocket moves sideways while the light bounces, so from Earth its light draws a zig-zag. A zig-zag is longer than a straight line, and light can't speed up to cover it. So each tick takes longer.</p>
+      <svg viewBox="0 0 200 70" aria-hidden="true"><rect x="6" y="6" width="188" height="4" rx="2" fill="#93a0bb" opacity=".35"/><rect x="6" y="60" width="188" height="4" rx="2" fill="#93a0bb" opacity=".35"/><polyline points="10,58 55,12 100,58 145,12 190,58" fill="none" stroke="#ffb547" stroke-width="2" stroke-dasharray="4 4"/><circle cx="145" cy="12" r="5" fill="#fff6c9"/></svg>
+    </div>
+    <div class="step">
+      <span class="n">STEP 4</span>
+      <h3>So moving clocks run slow</h3>
+      <p>This isn't a trick of the clock. Everything on the rocket slows down together: heartbeats, thoughts, ageing. The astronaut feels normal, but comes home younger than the people who stayed on Earth.</p>
+    </div>
+  </div>
+
+  <h2>It really happens</h2>
+  <p class="sub">The effect is tiny at everyday speeds, but we can measure it.</p>
+  <div class="real">
+    <div><b>GPS satellites</b><span>Their clocks would drift by about 38 microseconds a day (speed and weaker gravity combined). Uncorrected, your map position would be off by roughly 10 km after one day.</span></div>
+    <div><b>Muons from the sky</b><span>These particles should fall apart long before reaching the ground. They arrive anyway, because at 99.9% of light speed their internal clocks run slow.</span></div>
+    <div><b>Clocks on planes</b><span>In 1971 scientists flew atomic clocks around the world. When they landed, the clocks disagreed with clocks left on the ground by billionths of a second, as predicted.</span></div>
+  </div>
+
+  <footer>Simulation scale: in the scene, light moves 3 units per second and one tick is one second on a clock at rest. Real light is about 300,000 km/s. Slow-down factor γ = 1 / √(1 − v²/c²).</footer>
+</div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script>
+(() => {
+const C_KMS = 299792.458;
+const PRESETS = [
+  ["Car, 100 km/h", 100 / 3600 / C_KMS],
+  ["Space station", 7.66 / C_KMS],
+  ["Fastest probe", 191.7 / C_KMS],
+  ["50% light", 0.5], ["90%", 0.9], ["99%", 0.99], ["99.99%", 0.9999],
+];
+const $ = id => document.getElementById(id);
+const speed = $("speed");
+const toBeta = s => s <= 0 ? 0 : 1 - Math.pow(10, -4 * s / 1000);
+const toSlider = b => Math.min(1000, -Math.log10(1 - b) * 250);
+let beta = toBeta(+speed.value), presetBeta = null;
+
+// gamma minus one, accurate for tiny speeds
+const gm1 = b => b < 1e-3 ? b * b / 2 + 3 * b ** 4 / 8 : 1 / Math.sqrt(1 - b * b) - 1;
+const gamma = b => 1 + gm1(b);
+
+function fmtSpeed(b) {
+  if (b === 0) return "standing still";
+  const kms = b * C_KMS;
+  if (b < 1e-3) return kms < 1 ? `${(kms * 3600).toFixed(0)} km/h` : `${kms.toFixed(1)} km/s`;
+  return `${(b * 100).toFixed(b > 0.999 ? 2 : b > 0.99 ? 1 : 0)}% of light`;
+}
+function fmtDur(sec) {
+  if (sec < 1e-6) return `${(sec * 1e9).toPrecision(2)} ns`;
+  if (sec < 1e-3) return `${(sec * 1e6).toPrecision(3)} µs`;
+  if (sec < 1) return `${(sec * 1e3).toPrecision(3)} ms`;
+  if (sec < 120) return `${sec.toFixed(1)} s`;
+  if (sec < 7200) return `${(sec / 60).toFixed(1)} min`;
+  return `${(sec / 3600).toFixed(1)} hours`;
+}
+function fmtYears(y) { return y < 1000 ? `${y < 100 ? y.toFixed(y < 10.05 ? 4 : 1) : y.toFixed(0)} Earth years` : `${Math.round(y).toLocaleString()} Earth years`; }
+
+function updateText() {
+  const g = gamma(beta), d = gm1(beta);
+  $("speedval").textContent = fmtSpeed(beta);
+  $("gamma").textContent = d < 1e-6 ? "1." + "0".repeat(Math.max(0, Math.ceil(-Math.log10(d)) - 1)) + Math.round(d * 10 ** Math.ceil(-Math.log10(d))) : g.toFixed(g < 10 ? 4 : 1);
+  if (beta === 0) $("gamma").textContent = "1";
+  const lossPerDay = 86400 * d / g;
+  $("perday").textContent = beta === 0 ? "nothing" : fmtDur(lossPerDay);
+  $("tenyr").textContent = fmtYears(10 * g);
+  let v;
+  if (beta === 0) v = `The rocket is parked. Both clocks tick together.`;
+  else if (d < 1e-4) v = `At ${fmtSpeed(beta)} the difference is real but tiny: the rocket clock loses <span class="r">${fmtDur(lossPerDay)}</span> per day. Far too small to notice, but atomic clocks can measure it.`;
+  else v = `While <span class="e">1 second</span> passes on Earth, only <span class="r">${(1 / g).toFixed(3)} seconds</span> pass on the rocket. An astronaut who spends <span class="r">10 years</span> travelling comes home to find <span class="e">${fmtYears(10 * g).replace(" Earth years", " years")}</span> have passed on Earth.`;
+  $("verdict").innerHTML = v;
+  [...$("chips").children].forEach((c, i) => c.classList.toggle("on", presetBeta === PRESETS[i][1]));
+}
+$("chips").innerHTML = PRESETS.map(([n]) => `<button type="button">${n}</button>`).join("");
+[...$("chips").children].forEach((btn, i) => btn.onclick = () => { beta = presetBeta = PRESETS[i][1]; speed.value = beta < 1e-3 ? 0 : toSlider(beta); updateText(); });
+speed.oninput = () => { beta = toBeta(+speed.value); presetBeta = null; updateText(); };
+updateText();
+
+/* ---------- 3D scene ---------- */
+const stage = $("stage");
+if (!window.THREE) { $("hint").textContent = "The 3D scene could not load. The explanation below still works."; return; }
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+stage.insertBefore(renderer.domElement, stage.children[1]);
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(48, 1, 0.1, 200);
+camera.position.set(0, 3.2, 11);
+const controls = new THREE.OrbitControls(camera, renderer.domElement);
+controls.target.set(0, 1.2, 0); controls.enableDamping = true; controls.enablePan = false;
+controls.minDistance = 5; controls.maxDistance = 34; controls.maxPolarAngle = Math.PI * 0.62;
+
+scene.add(new THREE.AmbientLight(0x8899cc, 0.55));
+const sun = new THREE.DirectionalLight(0xffffff, 1.0); sun.position.set(5, 8, 6); scene.add(sun);
+
+// stars
+const starGeo = new THREE.BufferGeometry(); const sp = [];
+for (let i = 0; i < 900; i++) { const r = 60 + Math.random() * 40, t = Math.random() * Math.PI * 2, p = Math.acos(2 * Math.random() - 1); sp.push(r * Math.sin(p) * Math.cos(t), r * Math.cos(p), r * Math.sin(p) * Math.sin(t)); }
+starGeo.setAttribute("position", new THREE.Float32BufferAttribute(sp, 3));
+const stars = new THREE.Points(starGeo, new THREE.PointsMaterial({ color: 0xc9d6ff, size: 0.25 }));
+scene.add(stars);
+
+const C = 3, L = 1.5;                 // light speed (units/s), mirror gap: one round trip = 1 s
+const EARTH = 0x5ec8ff, ROCKET = 0xffb547, LIGHT = 0xfff6c9;
+const mirrorMat = new THREE.MeshStandardMaterial({ color: 0xc8d2e6, metalness: 0.8, roughness: 0.25 });
+function lightClock(color) {
+  const g = new THREE.Group();
+  const geo = new THREE.BoxGeometry(1.1, 0.06, 0.5);
+  const lo = new THREE.Mesh(geo, mirrorMat), hi = new THREE.Mesh(geo, mirrorMat); hi.position.y = L; g.add(lo, hi);
+  const frame = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(1.1, L, 0.5)), new THREE.LineBasicMaterial({ color, transparent: true, opacity: 0.45 }));
+  frame.position.y = L / 2; g.add(frame);
+  const photon = new THREE.Mesh(new THREE.SphereGeometry(0.09, 16, 12), new THREE.MeshBasicMaterial({ color: LIGHT }));
+  const glow = new THREE.PointLight(LIGHT, 1.2, 2.5); photon.add(glow); g.add(photon);
+  return { g, photon };
+}
+
+// Earth station
+const earth = new THREE.Group(); earth.position.set(-3.2, 0, -3);
+const planet = new THREE.Mesh(new THREE.SphereGeometry(1.0, 40, 30), new THREE.MeshStandardMaterial({ color: 0x2a6fb8, roughness: 0.8, emissive: 0x0a1f3a }));
+planet.position.y = -1.05; earth.add(planet);
+for (let i = 0; i < 7; i++) { const land = new THREE.Mesh(new THREE.SphereGeometry(0.25 + Math.random() * 0.2, 12, 10), new THREE.MeshStandardMaterial({ color: 0x3f9a5a, roughness: 0.9 }));
+  const t = Math.random() * Math.PI * 2, p = Math.random() * Math.PI; land.position.set(0.82 * Math.sin(p) * Math.cos(t), 0.82 * Math.cos(p), 0.82 * Math.sin(p) * Math.sin(t)); land.scale.set(1, 0.35, 1); land.lookAt(0, 0, 0); planet.add(land); }
+const earthClock = lightClock(EARTH); earthClock.g.position.y = 0.05; earth.add(earthClock.g);
+scene.add(earth);
+
+// rocket
+const rocket = new THREE.Group();
+const bodyMat = new THREE.MeshStandardMaterial({ color: 0xe9ecf3, metalness: 0.3, roughness: 0.4 });
+const accentMat = new THREE.MeshStandardMaterial({ color: ROCKET, roughness: 0.5, emissive: 0x3a2200 });
+const body = new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.32, 1.8, 24), bodyMat); body.rotation.z = Math.PI / 2;
+const nose = new THREE.Mesh(new THREE.ConeGeometry(0.32, 0.7, 24), accentMat); nose.rotation.z = -Math.PI / 2; nose.position.x = 1.25;
+const flame = new THREE.Mesh(new THREE.ConeGeometry(0.22, 0.8, 16), new THREE.MeshBasicMaterial({ color: 0xff7a2f, transparent: true, opacity: 0.85 })); flame.rotation.z = Math.PI / 2; flame.position.x = -1.3;
+const hull = new THREE.Group(); hull.add(body, nose, flame);
+for (const s of [-1, 1]) { const fin = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.04, 0.4), accentMat); fin.position.set(-0.7, 0, s * 0.42); hull.add(fin); const vf = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.4, 0.04), accentMat); vf.position.set(-0.7, s * 0.4, 0); hull.add(vf); }
+hull.position.y = -0.45; rocket.add(hull);
+const rocketClock = lightClock(ROCKET); rocket.add(rocketClock.g);
+rocket.position.set(-10, 0.6, 1.4); scene.add(rocket);
+
+// track + zig-zag trail of the rocket's light, as seen from Earth
+const track = new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(-12, 0, 1.4), new THREE.Vector3(12, 0, 1.4)]), new THREE.LineDashedMaterial({ color: 0x3a4a72, dashSize: 0.3, gapSize: 0.25 }));
+track.computeLineDistances(); scene.add(track);
+const MAXP = 1500; const trailPos = new Float32Array(MAXP * 3); let trailN = 0;
+const trailGeo = new THREE.BufferGeometry(); trailGeo.setAttribute("position", new THREE.BufferAttribute(trailPos, 3));
+const trail = new THREE.Line(trailGeo, new THREE.LineBasicMaterial({ color: ROCKET, transparent: true, opacity: 0.85 })); trail.frustumCulled = false; scene.add(trail);
+const eTrailGeo = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, L, 0)]);
+const eTrail = new THREE.Line(eTrailGeo, new THREE.LineBasicMaterial({ color: EARTH, transparent: true, opacity: 0.6 })); eTrail.position.copy(earth.position).add(new THREE.Vector3(0, 0.05, 0)); scene.add(eTrail);
+
+const tri = t => { const f = t - Math.floor(t); return f < 0.5 ? f * 2 : 2 - f * 2; };   // 0→1→0 over one tick
+let Te = 0, Tr = 0, last = performance.now();
+function resize() { const w = stage.clientWidth, h = stage.clientHeight; renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix();
+  const tanH = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * camera.aspect;   // fit ~20 units of track across the view
+  const d = Math.min(26, Math.max(10, 10 / tanH)); camera.position.setLength(d); }
+new ResizeObserver(resize).observe(stage); resize();
+
+function frame(now) {
+  const dt = Math.min(0.05, (now - last) / 1000); last = now;
+  const g = gamma(beta);
+  Te += dt; Tr += dt / g;
+  earthClock.photon.position.y = L * tri(Te);
+  rocketClock.photon.position.y = L * tri(Tr);
+  rocket.position.x += beta * C * dt;
+  if (rocket.position.x > 11) { rocket.position.x = -11; trailN = 0; }
+  if (trailN < MAXP) { const p = rocketClock.photon.getWorldPosition(new THREE.Vector3()); trailPos.set([p.x, p.y, p.z], trailN * 3); trailN++; }
+  trailGeo.setDrawRange(0, trailN); trailGeo.attributes.position.needsUpdate = true;
+  flame.scale.set(1, 0.4 + beta * 1.4 + Math.random() * 0.15, 1); flame.visible = beta > 0.001;
+  planet.rotation.y += dt * 0.08;
+  $("te").textContent = Te.toFixed(1) + " s"; $("tke").textContent = Math.floor(Te) + " ticks";
+  $("tr").textContent = Tr.toFixed(1) + " s"; $("tkr").textContent = Math.floor(Tr) + " ticks";
+  controls.update(); renderer.render(scene, camera);
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+
+/* ---------- AR mode: put the scene over the live camera ---------- */
+let stream = null;
+$("arBtn").onclick = async () => {
+  const msg = $("armsg"), video = $("cam");
+  if (stream) {   // turn AR off
+    stream.getTracks().forEach(t => t.stop()); stream = null; video.hidden = true; stars.visible = true; track.visible = true;
+    stage.style.background = ""; $("arBtn").textContent = "View in AR"; $("hint").textContent = "Drag to look around · pinch or scroll to zoom"; return;
+  }
+  msg.hidden = true;
+  try {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) throw new Error("none");
+    stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" }, audio: false });
+    video.srcObject = stream; video.hidden = false; await video.play();
+    stars.visible = false; track.visible = false; stage.style.background = "#000";
+    $("arBtn").textContent = "Exit AR"; $("hint").textContent = "The rocket and clocks are floating in your room. Drag to turn them.";
+  } catch (e) {
+    stream = null;
+    msg.innerHTML = `<b>The camera isn't available here.</b><br>This page can't use the camera inside claude.ai. To see the rocket in your room, open this page on your phone. It needs to be served over HTTPS (GitHub Pages works) and you need to allow camera access.<br><br><button type="button" id="arClose">OK</button>`;
+    msg.hidden = false; $("arClose").onclick = () => { msg.hidden = true; };
+  }
+};
+})();
+</script>
+
+</body>
+</html>
