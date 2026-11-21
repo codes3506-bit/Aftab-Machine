@@ -16,6 +16,7 @@ ap.add_argument('--t0', type=float, default=0); ap.add_argument('--t1', type=flo
 args = ap.parse_args()
 WID, HEI = int(1920 * args.scale), int(1080 * args.scale)
 VE = 1.5
+TF0, TG0, TFIN = SHOTS[4][0], SHOTS[5][0], SHOTS[6][0]
 META = json.load(open(f'{R}/work/meta.json'))
 HM = META['hm']
 
@@ -144,7 +145,8 @@ for poly in SC['hy']:
     d = np.r_[0, np.cumsum(np.hypot(np.diff(E), np.diff(N)))]
     s = np.arange(0, d[-1], 4.0); E2 = np.interp(s, d, E); N2 = np.interp(s, d, N)
     hyrows.append(ribbon(E2, N2, hgt(E2, N2), -np.ones_like(s), 3 * np.ones_like(s), s))
-hyr = np.concatenate(hyrows)
+# ghost track (the other option) for comparison
+gE, gN = (np.array(SC['ghost']['e']), np.array(SC['ghost']['n'])) if 'ghost' in SC else (None, None)
 RB_VS = '''#version 430
 in vec3 p; in vec2 sd; in float s; in float ch; in float ty; in float g;
 uniform mat4 mvp; uniform vec3 cam; uniform float VE, wbase, kpx, wmul, lm;
@@ -154,9 +156,13 @@ void main(){ vec3 P=vec3(p.xy,p.z*VE); float d=length(P-cam); float w=max(wbase,
  vch=ch; vty=ty; vg=g; vs=s; gl_Position=mvp*vec4(Q,1);}'''
 RB_FS = '''#version 430
 in float vch; in float vty; in float vg; in float vs; out vec4 fc;
-uniform float prog, gmode, pmode, alpha, pass_, hyA, t;
+uniform float prog, gmode, pmode, alpha, pass_, hyA, t, ghostA;
 vec3 gcol(float g){ g=abs(g)*100.0; if(g>25.0)return vec3(0.75,0.25,1.0); if(g>14.0)return vec3(1.0,0.16,0.14); if(g>10.0)return vec3(1.0,0.58,0.1); if(g>5.0)return vec3(1.0,0.92,0.25); return vec3(0.25,0.95,0.45);}
 void main(){
+ if(vty>3.5){ if(ghostA<0.01) discard; vec3 gc=vec3(0.92,0.93,0.97);
+   if(pass_<0.5){fc=vec4(0.06,0.02,0.02,0.6*ghostA);return;}
+   if(pass_>1.5){fc=vec4(gc,0.10*ghostA);return;}
+   fc=vec4(gc,0.85*ghostA); return;}
  if(vty>2.5){ // hy const area dashed outline
    if(fract(vg/40.0)>0.6 || hyA<0.01) discard;
    if(pass_<0.5){fc=vec4(0.05,0.0,0.0,0.5*hyA);return;}
@@ -177,6 +183,7 @@ rb = ctx.program(vertex_shader=RB_VS, fragment_shader=RB_FS)
 def rvao(arr):
     return ctx.vertex_array(rb, [(ctx.buffer(arr.tobytes()), '3f 2f 1f 1f 1f 1f', 'p', 'sd', 's', 'ch', 'ty', 'g')], mode=moderngl.TRIANGLE_STRIP)
 vao_trk = rvao(trk); vao_hy = [rvao(h) for h in hyrows]
+vao_gh = rvao(ribbon(gE, gN, hgt(gE, gN), -np.ones_like(gE), 4 * np.ones_like(gE), np.zeros_like(gE))) if gE is not None else None
 rb['VE'] = VE
 
 # ---------------- framebuffers ----------------
@@ -215,7 +222,7 @@ def cam_area(t):
     eye = C + np.array([R_ * math.cos(a), R_ * math.sin(a), 5200 - 900 * u]); return eye, C, 50 - 4 * u
 def cam_chase(t, c=None):
     c = ch(frozen(t)) if c is None else c
-    head = track_pt(c); ahead = track_pt(min(9.0, c + 0.32), True); back = track_pt(max(0.0, c - 0.25), True)
+    head = track_pt(c); ahead = track_pt(min(LEN, c + 0.32), True); back = track_pt(max(0.0, c - 0.25), True)
     d = ahead - back; d /= (np.linalg.norm(d) + 1e-9)
     side = np.array([-d[1], d[0]])
     eyexy = head - d * 520 + side * 140
@@ -224,15 +231,16 @@ def cam_chase(t, c=None):
     ez = max(hz + 360, clear_h(eyexy) * VE + 170)
     eye = np.array([eyexy[0], eyexy[1], ez]); tgt = np.array([tgxy[0], tgxy[1], hgt(*tgxy) * VE + 20])
     return eye, tgt, 50
+_bx = np.r_[TE, gE if gE is not None else TE]; _by = np.r_[TN, gN if gN is not None else TN]
+BC = np.array([(_bx.min() + _bx.max()) / 2, (_by.min() + _by.max()) / 2]); SPAN = max(_bx.max() - _bx.min(), _by.max() - _by.min())
 def cam_grade(t):
-    u = smooth((t - 115) / 13.0); a = math.radians(-150 + 45 * u)
-    cp = 0.55 * track_pt(CREST) + 0.45 * np.array([0.0, 0.0]); C = np.array([cp[0], cp[1], 190 * VE])
-    R_ = 4300 - 700 * u
-    return C + np.array([R_ * math.cos(a), R_ * math.sin(a), 2500 - 200 * u]), C, 44
+    u = smooth((t - TG0) / 13.0); a = math.radians(-140 + 40 * u); C = np.array([BC[0], BC[1], 160 * VE])
+    R_ = SPAN * (1.75 - 0.2 * u)
+    return C + np.array([R_ * math.cos(a), R_ * math.sin(a), R_ * 0.62]), C, 44
 def cam_finale(t):
-    u = (t - 128) / 24.0; a = math.radians(-90 + 26 * u); C = np.array([-400, 150, 170 * VE])
-    R_ = 5000 + 400 * u
-    return C + np.array([R_ * math.cos(a), R_ * math.sin(a), 3400 + 300 * u]), C, 44
+    u = (t - TFIN) / (DUR - TFIN); a = math.radians(-90 + 22 * u); C = np.array([BC[0], BC[1], 150 * VE])
+    R_ = SPAN * (1.75 + 0.06 * u)
+    return C + np.array([R_ * math.cos(a), R_ * math.sin(a), R_ * 0.66]), C, 44
 
 FUN = {'title': cam_title, 'area': cam_area, 'descend': None, 'brief': cam_chase, 'fly': cam_chase, 'grade': cam_grade, 'finale': cam_finale}
 def shot(t):
@@ -250,7 +258,7 @@ def raw_cam(t):
     return named(shot(t), t)
 def camera(t):
     t = frozen(t)
-    for b, w in ((9.0, 1.6), (115.0, 2.5), (128.0, 2.0)):
+    for b, w in ((9.0, 1.6), (TG0, 2.5), (TFIN, 2.0)):
         if abs(t - b) < w:
             u = smooth((t - b + w) / (2 * w))
             e0, g0, f0 = named(shot(b - 0.01), t); e1, g1, f1 = named(shot(b + 0.01), t)
@@ -263,14 +271,14 @@ def drift(t):
 
 def state(t):
     tf = frozen(t); k = shot(tf)
-    prog = ch(tf) if tf >= 45 else (9.0 if tf >= 115 else -1)
-    gm = smooth((tf - 116) / 2.5) if tf >= 115 else 0.0
-    if tf >= 128: gm = 1.0 - 0.0
-    pm = 1.0 if 9.5 <= tf < 45 else 0.0
-    alpha = smooth((tf - 10.5) / 2) if tf < 45 else 1.0
-    hyA = smooth((tf - 14) / 2) * (1 - smooth((tf - 112) / 3)) if tf < 128 else 0.0
-    sm = smooth((tf - 117) / 3) * (1 - smooth((tf - 130) / 3))
-    return dict(prog=prog, gmode=gm, pmode=pm, alpha=alpha, hyA=hyA, smode=sm)
+    prog = ch(tf) if tf >= TF0 else -1
+    gm = smooth((tf - TG0 - 1) / 2.5) if tf >= TG0 else 0.0
+    pm = 1.0 if 9.5 <= tf < TF0 else 0.0
+    alpha = smooth((tf - 10.5) / 2) if tf < TF0 else 1.0
+    hyA = smooth((tf - 14) / 2) * (1 - smooth((tf - TG0 + 3) / 3)) if tf < TFIN else 0.0
+    sm = smooth((tf - TG0 - 2) / 3) * (1 - smooth((tf - TFIN - 2) / 3))
+    gh = 0.0 if VID == 1 else smooth((tf - 12) / 2) * (0.55 if TF0 <= tf < TG0 else 0.8)
+    return dict(prog=prog, gmode=gm, pmode=pm, alpha=alpha, hyA=hyA, smode=sm, ghostA=gh)
 
 LBL = SC['labels']
 def project(M, p):
@@ -295,7 +303,7 @@ def render(t):
     vao_s.render(moderngl.TRIANGLE_STRIP)
     ctx.enable(moderngl.DEPTH_TEST); vao_t.render()
     rb['mvp'].write(mvp); rb['cam'] = tuple(eye); rb['kpx'] = 3.4 / HEI * math.tan(math.radians(fov) / 2) * 2
-    rb['wbase'] = 3.0; rb['prog'] = st['prog']; rb['gmode'] = st['gmode']; rb['pmode'] = st['pmode']; rb['alpha'] = st['alpha']; rb['hyA'] = st['hyA']
+    rb['wbase'] = 3.0; rb['prog'] = st['prog']; rb['gmode'] = st['gmode']; rb['pmode'] = st['pmode']; rb['alpha'] = st['alpha']; rb['hyA'] = st['hyA']; rb['ghostA'] = st['ghostA']
     ctx.enable(moderngl.BLEND); ctx.blend_func = moderngl.SRC_ALPHA, moderngl.ONE_MINUS_SRC_ALPHA
     gw = 1.0 + 0.9 * st['gmode']
     for pas, wm, lm in ((0, 1.6, 1.0), (1, 1.0, 1.35)):
@@ -303,6 +311,8 @@ def render(t):
         ctx.depth_mask = pas == 1
         rb['wmul'] = wm * 0.45
         for v in vao_hy: v.render()
+        rb['wmul'] = wm * 0.8
+        if vao_gh: vao_gh.render()
         rb['wmul'] = wm
         vao_trk.render()
     ctx.blend_func = moderngl.SRC_ALPHA, moderngl.ONE; ctx.depth_mask = False
@@ -324,7 +334,7 @@ def render(t):
         L[lb["id"]] = [float(round(pr[0], 1)), float(round(pr[1], 1)), bool(vis)]
     hp = None
     if st['prog'] >= 0:
-        h = track_pt(min(st['prog'], 9.0)); pr = project(M, (h[0], h[1], hgt(*h) * VE)); hp = None if pr is None else [float(pr[0]), float(pr[1])]
+        h = track_pt(min(st['prog'], LEN)); pr = project(M, (h[0], h[1], hgt(*h) * VE)); hp = None if pr is None else [float(pr[0]), float(pr[1])]
     return img, dict(t=t, eye=eye.tolist(), M=M.tolist(), L=L, head=hp, ch=float(st["prog"]), st={k: float(v) for k, v in st.items()})
 
 if args.stills:

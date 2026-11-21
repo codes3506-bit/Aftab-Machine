@@ -2,22 +2,33 @@
 import numpy as np, json
 FPS = 30
 R = '/home/user/recce'
-SC = json.load(open(f'{R}/work/scene.json'))
+import os
+VID = int(os.environ.get('VID', '1'))
+SC = json.load(open(f'{R}/work/' + ('scene.json' if VID == 1 else 'scene2.json')))
 CREST = SC['crest_ch']
+LEN = float(SC['track']['ch'][-1]) if VID == 2 else 9.0
 
 # (t_start, t_end, ch_start, ch_end) for the fly-through; pauses hold chainage
-FLY = [(45.0, 59.0, 0.00, 3.00),
+FLY1 = [(45.0, 59.0, 0.00, 3.00),
        (59.0, 63.0, 3.00, 3.40),
        (74.0, 81.0, 3.40, CREST),
        (93.0, 102.0, CREST, 5.30),
        (102.0, 115.0, 5.30, 9.00)]
-PAUSES = [  # (t0, t1, id) background frozen
+PAUSES1 = [  # (t0, t1, id) background frozen
     (32.0, 45.0, 'brief'),
     (63.0, 74.0, 'ascent'),
     (81.0, 93.0, 'crest')]
-SHOTS = [(0, 9, 'title'), (9, 25, 'area'), (25, 32, 'descend'), (32, 45, 'brief'),
-         (45, 115, 'fly'), (115, 128, 'grade'), (128, 152, 'finale')]
-DUR = 152.0
+SHOTS1 = [(0, 9, 'title'), (9, 25, 'area'), (25, 32, 'descend'), (32, 45, 'brief'),
+          (45, 115, 'fly'), (115, 128, 'grade'), (128, 152, 'finale')]
+# video 2 – Opt 2 (west altn tr)
+FLY2 = [(46.0, 59.0, 0.00, CREST), (70.0, 76.0, CREST, 3.13), (86.0, 102.0, 3.13, LEN)]
+PAUSES2 = [(32.0, 46.0, 'brief'), (59.0, 70.0, 'saddle'), (76.0, 86.0, 'nullah')]
+SHOTS2 = [(0, 9, 'title'), (9, 25, 'area'), (25, 32, 'descend'), (32, 46, 'brief'),
+          (46, 102, 'fly'), (102, 115, 'grade'), (115, 145, 'finale')]
+FLY, PAUSES, SHOTS = (FLY1, PAUSES1, SHOTS1) if VID == 1 else (FLY2, PAUSES2, SHOTS2)
+DUR = 152.0 if VID == 1 else 145.0
+T_FLY0, T_FLY1 = SHOTS[4][0], SHOTS[4][1]
+T_GRADE1 = SHOTS[5][1]
 
 
 def smooth(x):
@@ -35,7 +46,7 @@ def chain_at(t):
             u = (t - a) / (b - a)
             # ease only at segment ends that touch a pause
             return c0 + (c1 - c0) * u
-    return 9.0
+    return LEN
 
 
 # gaussian-smoothed chainage for velocity continuity (except holds stay exact)

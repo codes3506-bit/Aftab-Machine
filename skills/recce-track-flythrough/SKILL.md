@@ -58,3 +58,28 @@ in a 1 km corridor, KMZ slope legend) · 128-152 slide-vs-recce table, POL calcu
 - Ribbon outline + fill at the same depth z-fight → lift the fill slightly more and don't write depth for the outline.
 - Slope tint over a whole mountain range is just purple – restrict to a corridor mask around the track.
 - PIL: build panels opaque, then scale alpha; drawing translucent fills directly replaces alpha.
+
+## Alternative alignment study (added for Opt 2)
+When the recced alignment is too costly, find a cheaper one on the same terrain model and make a second video:
+1. `chw.py` – trace the existing metalled road (CHW / N10) from the z17 imagery (asphalt = low-saturation dark grey,
+   sample real road pixels first) with an image-cost Dijkstra; cut the trace at its last reliable point.
+2. `route.py GSOFT GHARD GPEN OUT.json AVOID` – least-cost path (scipy csgraph Dijkstra, 12 m grid, 16-connected) from post
+   to post. Edge cost is POL in user's standards: levelling, cut & fill when cross slope > 15 %, bench cut + grade-cut proxy
+   converted to excavator + dozing POL, steep-grade penalties, **direction-aware nullah cost** (full when crossing the flow,
+   small flood-risk cost when running along a bed) on a **priority-flood depression-filled** D8 accumulation, existing road
+   nearly free, optional corridor-avoid of the current track to force a genuinely different option.
+3. `analyse_alt.py RAW.json OUT.json` – identical analysis to the recced tr (grades, rock, section typing, N xings by
+   catchment) so both options are compared like-for-like; `polalt.py` runs the user's POL engine (1+1 and fleet).
+   Run the current track through the same code (`cur_raw.json`) as a check (it reproduced 53,900 vs 54,200 cu M).
+4. Choose on POL, days, max grade, highest point **and risk** (major nullahs, reliance on long road detours, odd take-offs).
+   B3-Haryan: Opt 2 west = 23,216 L / 61 days vs 63,310 L / 220 days (1 Dozer + 1 Excavator).
+5. `scene2.py` + `VID=2` in `timeline.py`/`render.py`/`hud2.py`/`audio.py` – second video with the other option drawn as a
+   grey "ghost" ribbon, saddle & nullah-bed pauses, Opt 1 vs Opt 2 bars and comparison table at the end.
+
+## Presentation rules the user asked for (apply by default)
+Title / top heading in BLOCK letters; logos from the user's PPTX (`ppt/media`), kept in slide order (44 Div left, 23 KS right),
+set in round badges; "CH" in capitals everywhere; "Excavator" never abbreviated; Gwd 290 Kms (west) / Kci 210 Kms (east)
+arrows in the area orientation; labels must never overlap (greedy placer with hysteresis + reserved panel rects);
+all tables / legends in side columns with a gold glow, never over the moving 3D; frame the track in the centre third
+for overview and finale shots; plant table = Excavator / Jack hammer, Dozer, Misc (all vehicle km summed) + total;
+no "Div POL Calculator" / "10 % margin" wording on screen; recce date as told by the user (Gr recce 20 Nov 26).

@@ -30,12 +30,12 @@ nz = rng.standard_normal(N); wind = sosfilt(butter(2, [180, 1400], 'band', fs=SR
 wind *= (0.55 + 0.45 * np.sin(2 * np.pi * 0.05 * t + 1.2) ** 2); wind /= np.abs(wind).max()
 # --- low pulse during fly-through (tension), muted in pauses
 pulse = np.zeros(N)
-for b in np.arange(45, 115, 1.0):
+for b in np.arange(SHOTS[4][0], SHOTS[4][1], 1.0):
     if pause_at(b): continue
     i0 = int(b * SR); L = int(0.45 * SR); tt = np.arange(L) / SR
     pulse[i0:i0 + L] += np.sin(2 * np.pi * (52 - 20 * tt) * tt) * np.exp(-tt * 9)
-lvl_pad = env(t, [(0, 0), (1.5, 0.5), (9, 0.42), (32, 0.32), (45, 0.42), (63, 0.3), (74, 0.42), (81, 0.3), (93, 0.42), (115, 0.46), (128, 0.36), (149, 0.36), (DUR, 0)])
-lvl_wind = env(t, [(0, 0), (2, 0.16), (45, 0.14), (50, 0.2), (115, 0.2), (128, 0.1), (149, 0.1), (DUR, 0)])
+lvl_pad = env(t, [(0, 0), (1.5, 0.5), (9, 0.42)] + [p for a_, b_, _ in PAUSES for p in ((a_, 0.3), (b_, 0.42))] + [(SHOTS[5][0], 0.46), (SHOTS[6][0], 0.36), (DUR - 3, 0.36), (DUR, 0)])
+lvl_wind = env(t, [(0, 0), (2, 0.16), (SHOTS[4][0], 0.14), (SHOTS[4][0] + 5, 0.2), (SHOTS[5][0], 0.2), (SHOTS[6][0], 0.1), (DUR - 3, 0.1), (DUR, 0)])
 mix = pad * lvl_pad + wind * lvl_wind + pulse * 0.22
 mix = np.stack([mix, mix], 1)
 # stereo width on wind
@@ -53,30 +53,32 @@ sfx('transition/swoosh-slow.mp3', 8.6, 0.55)
 for k in range(10): sfx('ui/pop.mp3', 11 + k * 0.45, 0.22)
 sfx('ui/ui-popup-dry.mp3', 13.0, 0.35)
 sfx('transition/air-woosh-deep.mp3', 25.0, 0.55)
-sfx('transition/transition-soft.mp3', 31.8, 0.5)
-for k, at in enumerate((32.5, 33.6, 34.6)): sfx('ui/ui-popup-dry.mp3', at, 0.4)
-sfx('ui/ui-notify-tech.mp3', 40.6, 0.35)
-sfx('riser/riser-cine.mp3', 41.4, 0.35)
-sfx('transition/air-whoosh-powerful.mp3', 44.6, 0.7)
+B0, B1 = PAUSES[0][0], PAUSES[0][1]
+sfx('transition/transition-soft.mp3', B0 - 0.2, 0.5)
+for k, at in enumerate((B0 + 0.5, B0 + 1.6, B0 + 2.6)): sfx('ui/ui-popup-dry.mp3', at, 0.4)
+sfx('ui/ui-notify-tech.mp3', B0 + 8.6, 0.35)
+sfx('riser/riser-cine.mp3', B1 - 3.6, 0.35)
+sfx('transition/air-whoosh-powerful.mp3', B1 - 0.4, 0.7)
 # N xing ticks during fly-through
 for l in SC['labels']:
     if l['kind'] in ('nx', 'km'):
         idx = np.where(CHS >= l['ch'] - (0.05 if l['kind'] == 'nx' else 0))[0]
-        idx = idx[idx > 45 * FPS]
+        idx = idx[idx > SHOTS[4][0] * FPS]
         if len(idx): sfx('ui/ui-select-click.mp3' if l['kind'] == 'nx' else 'ui/switch-tap.mp3', idx[0] / FPS, 0.25)
 for a, b, k in PAUSES[1:]:
     sfx('transition/transition-soft.mp3', a - 0.2, 0.5)
     sfx('ui/ui-popup-dry.mp3', a + 0.4, 0.4)
-    n = 2 if k == 'ascent' else 3
+    n = {'ascent': 2, 'crest': 3}.get(k, 0)
     for j in range(n): sfx('camera/camera-lens-shutter.mp3', a + 1.0 + 0.7 * j, 0.45)
     sfx('transition/whoosh-fast.mp3', b - 0.3, 0.55)
-sfx('impact/impact-deep-whoosh.mp3', 80.6, 0.55)
-sfx('transition/swoosh-slow.mp3', 114.0, 0.5); sfx('data/data-scan.mp3', 117.0, 0.3)
-sfx('transition/transition-tech.mp3', 128.6, 0.45); sfx('transition/transition-tech.mp3', 136.6, 0.45)
-sfx('impact/impact-transition.mp3', 144.7, 0.45)
+sfx('impact/impact-deep-whoosh.mp3', PAUSES[2][0] - 0.4, 0.55)
+G0, FN = SHOTS[5][0], SHOTS[6][0]
+sfx('transition/swoosh-slow.mp3', G0 - 1.0, 0.5); sfx('data/data-scan.mp3', G0 + 2.0, 0.3)
+sfx('transition/transition-tech.mp3', FN + 0.6, 0.45); sfx('transition/transition-tech.mp3', FN + (8.6 if VID == 1 else 6.6), 0.45)
+sfx('impact/impact-transition.mp3', DUR - (7.3 if VID == 1 else 10.9), 0.45)
 fo = np.clip((DUR - t) / 2.5, 0, 1)[:, None]; mix *= fo
 pk = np.abs(mix).max(); mix = np.tanh(mix / pk * 1.4) / np.tanh(1.4) * 0.89
 out = (mix * 32767).astype(np.int16)
-with wave.open(f'{R}/out/soundtrack.wav', 'wb') as w:
+with wave.open(f'{R}/out/soundtrack{VID}.wav', 'wb') as w:
     w.setnchannels(2); w.setsampwidth(2); w.setframerate(SR); w.writeframes(out.tobytes())
 print('ok', DUR)
