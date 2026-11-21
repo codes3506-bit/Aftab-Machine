@@ -65,7 +65,7 @@ def panel(w, h, bg=NAVY2, alpha=0.9, r=16, border=GOLD, bw=0):
 _sh = {}
 def shadowed(im, glow=True):
     key = (id(im), glow)
-    if key in _sh: return _sh[key]
+    if key in _sh and _sh[key][0] is im: return _sh[key][1]
     b = 18; w, h = im.size; s = Image.new('RGBA', (w + 4 * b, h + 4 * b), (0, 0, 0, 0))
     a = im.split()[3]
     sh = Image.new('RGBA', im.size, (0, 0, 0, 255)); sh.putalpha(a.point(lambda v: int(v * 0.5)))
@@ -74,7 +74,7 @@ def shadowed(im, glow=True):
         g = Image.new('RGBA', s.size, (0, 0, 0, 0)); gl = Image.new('RGBA', im.size, GOLD + (255,)); gl.putalpha(a.point(lambda v: 255 if v > 10 else 0))
         g.alpha_composite(gl, (2 * b, 2 * b)); g = g.filter(ImageFilter.GaussianBlur(9)); ga = g.split()[3].point(lambda v: int(v * 0.75)); g.putalpha(ga)
         s.alpha_composite(g)
-    s.alpha_composite(im, (2 * b, 2 * b)); _sh[key] = (s, 2 * b)
+    s.alpha_composite(im, (2 * b, 2 * b)); _sh[key] = (im, (s, 2 * b))
     if len(_sh) > 60: _sh.pop(next(iter(_sh)))
     return s, 2 * b
 def opacity(im, o):
@@ -135,13 +135,38 @@ class Placer:
     def free(s, r):
         if r[0] < 6 or r[2] > W - 6 or r[1] < 86 or r[3] > H - 34: return False
         return all(r[2] + 8 < q[0] or q[2] + 8 < r[0] or r[3] + 6 < q[1] or q[3] + 6 < r[1] for q in s.rects)
+    def overlap(s, r):
+        a = 0.0
+        for q in s.rects:
+            ix = min(r[2], q[2]) - max(r[0], q[0]); iy = min(r[3], q[3]) - max(r[1], q[1])
+            if ix > -8 and iy > -6: a += (ix + 8) * (iy + 6)
+        if r[0] < 6 or r[2] > W - 6 or r[1] < 86 or r[3] > H - 34: a += 1e6
+        return a
     def place(s, lid, x, y, w, h, lift):
-        opts = [(0, lift)] + [(dx, lift + dl) for dl in (0, 45, 90, 135, 180, 225) for dx in (0, -0.65 * w, 0.65 * w)] + [(0, lift - 40), (0, -lift - h + 10)]
-        if lid in _last: opts = [_last[lid]] + opts
-        for dx, ly in opts:
-            r = (x + dx - w / 2, y - ly - h, x + dx + w / 2, y - ly)
-            if s.free(r): s.rects.append(r); _last[lid] = (dx, ly); return r
-        return None
+        """temporally stable placement: keep the current offset while it is free; otherwise pick the nearest free
+        option and glide to it (no frame-to-frame flipping, labels never blink out)"""
+        rect = lambda o: (x + o[0] - w / 2, y - o[1] - h, x + o[0] + w / 2, y - o[1])
+        st = _last.get(lid)
+        if st is None:
+            st = {'cur': np.array([0.0, float(lift)]), 'tgt': np.array([0.0, float(lift)]), 'hold': 0}; _last[lid] = st
+        tgt = st['tgt']
+        if s.overlap(rect(tgt)) > 0:
+            st['hold'] += 1
+            if st['hold'] >= 3:   # only move after a sustained conflict
+                opts = [(0, lift)] + [(dx, lift + dl) for dl in (0, 45, 90, 135, 180, 225, 270) for dx in (0, -0.65 * w, 0.65 * w)] + [(0, -lift - h + 10)]
+                sc = [(s.overlap(rect(o)), np.hypot(o[0] - tgt[0], o[1] - tgt[1]), o) for o in opts]
+                best = min(sc, key=lambda v: (v[0] > 0, v[0], v[1]))
+                st['tgt'] = np.array(best[2], float); st['hold'] = 0
+        else:
+            st['hold'] = 0
+            pref = np.array([0.0, float(lift)])
+            if np.hypot(*(tgt - pref)) > 1 and s.overlap(rect(pref)) == 0:
+                st['pf'] = st.get('pf', 0) + 1
+                if st['pf'] > 45: st['tgt'] = pref; st['pf'] = 0      # drift back home only after 1.5 s free
+            else: st['pf'] = 0
+        st['cur'] = st['cur'] + (st['tgt'] - st['cur']) * 0.12
+        r = rect(st['cur']); s.rects.append(rect(st['tgt'])); s.rects.append(r)
+        return r
 def draw_pill(ov, x, y, r, txt, kind, o, it=False):
     bg, fg, sz = KIND[kind]; d = ImageDraw.Draw(ov); a = int(255 * o); f = F(sz, 'bi' if it else 'b')
     cx = (r[0] + r[2]) / 2; by = r[3] if r[3] < y else r[1]
@@ -151,15 +176,27 @@ def draw_pill(ov, x, y, r, txt, kind, o, it=False):
     d.rounded_rectangle(r, 8, fill=bg + (a,), outline=(255, 255, 255, int(a * 0.8)), width=2)
     d.text((cx, (r[1] + r[3]) / 2), txt, font=f, fill=fg + (a,), anchor='mm')
 def labels(ov, cam, items, o, placer):
-    d = ImageDraw.Draw(ov)
+    d = ImageDraw.Draw(ov); todo = []
     for lid, txt, kind, lift, t_on in items:
         if lid not in cam['L'] or o * t_on <= 0.01: continue
         x, y, vis = cam['L'][lid]
         if not vis and kind not in ('post',): continue
         if not (0 <= x <= W and 80 <= y <= H): continue
+        todo.append((lid, txt, kind, lift, t_on, x, y))
+    for it in todo: placer.rects.append((it[5] - 9, it[6] - 9, it[5] + 9, it[6] + 9))   # every anchor dot is reserved
+    placed = []
+    for lid, txt, kind, lift, t_on, x, y in todo:
         sz = KIND[kind][2]; f = F(sz, 'bi' if kind == 'khor' else 'b'); w = tw(d, txt, f) + 26; h = sz + 16
-        r = placer.place(lid, x, y, w, h, lift)
-        if r: draw_pill(ov, x, y, r, txt, kind, o * t_on, it=(kind == 'khor'))
+        placed.append((x, y, placer.place(lid, x, y, w, h, lift), txt, kind, o * t_on))
+    for x, y, r, txt, kind, a in placed:      # leader lines + dots first, pills on top
+        bg = KIND[kind][0]; al = int(255 * a); cx = (r[0] + r[2]) / 2; by = r[3] if r[3] < y else r[1]
+        d.line((x, y, cx, by), fill=(255, 255, 255, al), width=2)
+        if kind == 'nx': d.polygon([(x, y - 14), (x - 10, y + 4), (x + 10, y + 4)], fill=YEL + (al,), outline=(0, 0, 0, al))
+        else: d.ellipse((x - 6, y - 6, x + 6, y + 6), fill=bg + (al,), outline=(255, 255, 255, al), width=2)
+    for x, y, r, txt, kind, a in placed:
+        bg, fg, sz = KIND[kind]; al = int(255 * a); f = F(sz, 'bi' if kind == 'khor' else 'b')
+        d.rounded_rectangle(r, 8, fill=bg + (al,), outline=(255, 255, 255, int(al * 0.8)), width=2)
+        d.text(((r[0] + r[2]) / 2, (r[1] + r[3]) / 2), txt, font=f, fill=fg + (al,), anchor='mm')
 
 # ---------------- Gwd / Kci arrows ----------------
 CHW = json.load(open(f'{R}/work/chw.json'))
@@ -179,6 +216,7 @@ def project(M, p):
     v = np.array(M) @ np.array([p[0], p[1], p[2], 1.0])
     if v[3] <= 0: return None
     return np.array([(v[0] / v[3] * 0.5 + 0.5) * W, (1 - (v[1] / v[3] * 0.5 + 0.5)) * H])
+_arw = {}
 def arrows(ov, cam, o, placer):
     if o <= 0.01: return
     M = cam['M']; E_, N_ = CHW['E'], CHW['N']
@@ -187,8 +225,10 @@ def arrows(ov, cam, o, placer):
         A_ = project(M, (pa[0], pa[1], hgt(*pa) * VE)); B_ = project(M, (pb[0], pb[1], hgt(*pb) * VE))
         if A_ is None or B_ is None: continue
         v = B_ - A_; ang = math.degrees(math.atan2(-v[1], abs(v[0]) + 1e-6)) * (1 if k == 1 else -1)
-        ang = float(np.clip(ang, -22, 22)); im = ARW[k].rotate(ang, Image.BICUBIC, expand=True)
-        x = float(np.clip(B_[0], 30 + im.size[0] / 2, W - 30 - im.size[0] / 2)); y = float(np.clip(B_[1] + 40, 160, H - 120))
+        ang = float(np.clip(ang, -22, 22)); sm_ = _arw.setdefault(k, [ang, B_[0], B_[1]])
+        sm_[0] += (ang - sm_[0]) * 0.08; sm_[1] += (B_[0] - sm_[1]) * 0.15; sm_[2] += (B_[1] - sm_[2]) * 0.15
+        im = ARW[k].rotate(round(sm_[0] * 4) / 4, Image.BICUBIC, expand=True)
+        x = float(np.clip(sm_[1], 30 + im.size[0] / 2, W - 30 - im.size[0] / 2)); y = float(np.clip(sm_[2] + 40, 160, H - 120))
         r = (x - im.size[0] / 2, y - im.size[1] / 2, x + im.size[0] / 2, y + im.size[1] / 2); placer.rects.append(r)
         put(ov, im, r[0], r[1], o, glow=False)
 
@@ -513,7 +553,7 @@ if __name__ == '__main__':
         sys.exit()
     dec = subprocess.Popen(['ffmpeg', '-v', 'error', '-i', args.src, '-f', 'rawvideo', '-pix_fmt', 'rgb24', '-'], stdout=subprocess.PIPE)
     enc = subprocess.Popen(['ffmpeg', '-y', '-v', 'error', '-f', 'rawvideo', '-pix_fmt', 'rgb24', '-s', f'{W}x{H}', '-r', str(FPS), '-i', '-',
-                            '-c:v', 'libx264', '-preset', 'slow', '-crf', '14', '-pix_fmt', 'yuv420p', args.out], stdin=subprocess.PIPE)
+                            '-c:v', 'libx264', '-preset', 'slow', '-crf', '10', '-pix_fmt', 'yuv420p', args.out], stdin=subprocess.PIPE)
     for f in range(len(cams)):
         fr = dec.stdout.read(W * H * 3)
         if len(fr) < W * H * 3: break
