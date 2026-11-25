@@ -18,7 +18,11 @@ Shot rules: one motion idea per shot; ≥ 1 s hold after each key figure lands; 
 
 Inserts: drone frames always carry `DRONE mm:ss · place · ASSESSED`. Plan views always carry a north arrow and a 500 m scale bar.
 
-## Decision needed before the full render
+## Decisions taken after the checkpoint
+- User: go ahead. Beat 8 = **RECOM T5, ALTN T4, gr recce both** (stated tie-breakers: grade for loaded vehicles, crest exposure). The card shows the MCDA order (T4 0.79 v T5 0.76) openly.
+- Beat 4 geology revised after the user's annotated oblique: bedding on both faces, so beds gently dipping (assessed).
+
+## Decision context (as presented at the checkpoint)
 The data does **not** cleanly confirm the expected outcome:
 - **T4 (E flank)** scores **0.79** and **T5 (rear / N foothill)** scores **0.76**. If the KMZ new tr is built anyway: **0.765 vs 0.763**, effectively a tie.
 - **T5 wins on gradient and stability of work:** max 16.6 %, mean 7.6 %, only 33 % over 1:10, 0 % over 1:5, least cut (≈ 2.6k m³ assessed), lowest exposure to the dominating crests (34 %).

@@ -30,11 +30,16 @@ Local coordinates: equirectangular metres about 25.415 N, 63.435 E (scale error 
   - Min–max scores, 1 = best. Weights: gradient 20, exposure 20, construction effort 15, length 10, drainage 10, stability 10, trafficability 10, maintenance 5.
   - Weights were set before scoring and not tuned.
   - Sensitivity: each weight ±20 % (16 runs), plus exposure ×2 and ×0.5, gradient ×0.5, length ×2, plus a "KMZ new tr built anyway" case.
-- **Geology (assessed):**
-  - Cross-sections through the post show a steep S face (≈21° mean over 250 m) and a gentle N side falling into a strike hollow (≈85 m).
-  - Imagery bedding traces strike ENE–WSW, and the drone clip at 1:03 shows bedding outcropping on the S face.
-  - Interpretation: beds dip **N**, so the S face is the scarp (dip into slope) and the N side is the dip slope (dip out of slope).
-  - **Unconfirmed:** this needs a ground dip reading, or the camera heading of the annotated oblique.
+- **Geology (assessed, revised after the recce oblique):**
+  - Cross-sections show a steep S face (≈21° mean over 250 m) and a gentle N side falling into a strike hollow (≈85 m).
+  - Bedding strikes ENE–WSW on imagery.
+  - Bedding crops out on **both** faces: the S face in drone clip 01:03, and the N side in the user's annotated oblique. The oblique is assessed as looking S from the N side, since it shows badlands beyond the crest and no river plain.
+  - Read: beds gently dipping or near-horizontal. No dip-slope (planar-slide) face is identified. An earlier "beds dip N" reading, based on ridge asymmetry alone, was withdrawn.
+  - **Unconfirmed:** take a dip reading on the ground.
+- **POL / work days:** the `pol-work-days-calculator` engine with the user's saved standards (`userstd.json`) and a 10 % hidden margin.
+  - Sections typed per 5 m: nala where catchment > 5 ha; cut & fill where cross slope > 15 %; levelling elsewhere.
+  - Cut is excavated at the hill-cutting standard (34 m³/hr), and spoil is dozed at 95 m³/hr.
+  - Vehicle moves are assumed: FBT 2 × 20 km, SC 10 × 40 km round trip, civ trk 2 × 20 km.
 
 ## What is NOT claimed
 - The T1–T5 alignments are LCP-derived lines on a 30 m DEM, not surveyed alignments. Final pegging needs ground recce.
