@@ -61,7 +61,7 @@
    a. <u>T2 (graded S spur)</u>. Least POL and work days; 6 x hairpins; high exposure to W/ NW low gr.
    b. <u>T3 (W spur/ ridge)</u>. Uses the KMZ new tr; highest exposure to the crests.
    c. <u>T4 (E flank)</u>. Shortest graded aln; nil N xings; 8 x hairpins; 50 % exposure to the crests.
-   d. <u>T5 (rear/ N foothill)</u>. Gentlest grades and least crest exposure; longest aln with 6 x N xings, which will need protection (Irish xings/ causeways).
+   d. <u>T5 (rear/ N foothill)</u>. Gentlest grades and least crest exposure of the graded alns (34 %); longest aln with 6 x N xings, which will need protection (Irish xings/ causeways).
    e. <u>T1 (direct climb)</u>. Listed for completeness; **not tech feasible** for veh mov.
    f. <u>Gr Recce</u>. Whichever aln is selected, gr recce is req before pegging (dip of strata, N xing sites, OP sites).
    g. <u>Interim</u>. Till the aln is finalised, the existing footpath will continue to be used for foot mov to the post.
