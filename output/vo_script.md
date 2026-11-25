@@ -6,16 +6,16 @@ Staff-briefing tone, about 250 words. Figures match the on-screen data (`metrics
 Khabri-1 hill post, RL one-three-three, on the south-western nose of the Taloband range.
 
 **[0:08] Establishing**
-The existing track runs from CHW to the foot of the old climb at chainage three decimal nine. Five alignments to the post have been studied.
+The existing track runs from CHW along the foot of the ridge. Five alignments to the post have been studied.
 
 **[0:20] Terrain**
-The south face is steep, about twenty-one degrees. The north side falls more gently into a strike hollow. Nalas drain both flanks.
+Both faces are steep. Within two hundred and fifty metres of the post the south face averages about twenty-two degrees and the north face about twenty-four. The north face drops some sixty metres into a strike hollow. Nalas drain both flanks.
 
 **[0:30] Strata**
 Bedding strikes east-north-east and crops out on both faces. The beds are assessed as gently dipping. This is to be confirmed on the ground.
 
 **[0:40] Five alignments**
-Each alignment was found by least-cost analysis, forced to arrive from a different side.
+Each alignment is a least-cost corridor on the terrain model. They are five distinct approaches to the post.
 
 **[0:55] Option one**
 Direct climb on the south spur. Point eight seven kilometres; maximum grade thirty percent; sixteen percent of its length steeper than one in five.
@@ -33,7 +33,7 @@ East flank. One decimal zero eight kilometres; maximum twenty decimal six percen
 Rear and north foothill. Two decimal four one kilometres; maximum sixteen decimal six percent; six nala crossings.
 
 **[1:45] Comparison**
-Gradient, cut, drainage, exposure, POL and work days for each option are shown.
+Gradient, cut, nala crossings, exposure, POL and work days for each option are shown side by side. There is no weighting and no ranking.
 
 **[1:54] Close**
 All five options are presented for decision. Alignments are to be confirmed by ground recce before pegging.

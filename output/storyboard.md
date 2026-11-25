@@ -14,12 +14,12 @@ Camera:
 | # | TC | Picture | Camera | On screen | Audio |
 |---|---|---|---|---|---|
 | 1 | 0:00–0:08 | Drone 00:37–00:45, Taloband Rg S face, letterboxed 2.39:1 | slow 7 % push-in | Title **TRACK RECCE · OPTIONS / KHABRI-1 HILL POST**. Geotag chip `DRONE 00:xx · ASSESSED` | wind, pad |
-| 2 | 0:08–0:20 | 3D establishing; opens on the drone's heading | orbit S → SW, descending | Post pin with grid and RL. AOI draws on. KMZ track draws on. Take-off CH 3.92 tag | woosh, pin chime |
-| 3 | 0:20–0:30 | Slope tint (2 km corridor) then drainage | lateral truck from SE | Slope legend; S face ≈ 21° (scarp); N side ≈ 8° (strike hollow) | data scan |
-| 4 | 0:30–0:40 | DEM N–S section through the post + drone 00:58–01:08 | locked | Bedding on both faces, so beds gently dipping (**ASSESSED**) | low hit |
+| 2 | 0:08–0:20 | 3D establishing; opens on the drone's heading | orbit S → SW, descending | Post pin with grid and RL. AOI draws on. KMZ track draws on. T4 take-off CH tag (computed) | woosh, pin chime |
+| 3 | 0:20–0:30 | Slope tint (2 km corridor) then drainage | lateral truck from SE | Slope legend; S face ≈ 22° and N face ≈ 24° (mean slope within 250 m, computed from Cop GLO-30) | data scan |
+| 4 | 0:30–0:40 | DEM N–S section through the post (true profile only, no drawn bedding) + drone 00:58–01:08 | locked | Computed face slopes. Bedding on both faces, so beds gently dipping (**ASSESSED**) | low hit |
 | 5 | 0:40–0:55 | T1→T5 draw on one by one (2.6 s each) and stay | slow 38° orbit | Tags and legend | sparkle per track; riser |
 | 6–10 | 0:55–1:45 | **Option flights:** T1, T2, T3, T4, T5, 10 s each | elevated chase along each track, ends looking at the post | Live CH / ELEV / GRADE; per-option card (length, grades, hairpins, nala xings, cut, exposure, POL, work days, profile) | impact at 0:55 (only full-frame hit); swoosh per option |
-| 11 | 1:45–1:54 | Plan view, N up, exposure dots + factual table + unweighted radar | 4 % push | No scores, no ranking. Footnote on accuracy | table ticks |
+| 11 | 1:45–1:54 | Plan view, N up, labelled tracks + factual table + column key | 4 % push | No scores, no radar, no ranking. Footnote on accuracy | table ticks |
 | 12 | 1:54–2:00 | **OPTIONS FOR DECISION:** five equal columns of figures | static, fade out | "All alignments are least-cost corridors on a 30 m DEM · figures assessed · confirm by gr recce before pegging" | aura, resolve |
 
-Every on-screen figure is read from `work/metrics.json`, `pol.json` and `mcda.json` (criteria scores only).
+Every on-screen figure is read from `work/metrics.json` and `pol.json`, or computed from the DEM at render time (face slopes, DSM bias). The only literal inputs are the post RL 133 and its coordinates, both given by the user. Cut is shown on the same basis as POL (incl the KMZ new tr portion). `mcda.json` is not used in the film.

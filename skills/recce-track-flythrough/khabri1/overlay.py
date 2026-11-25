@@ -6,7 +6,7 @@ FD = '/usr/share/fonts/opentype/inter/'
 def F(sz, w='SemiBold', disp=False): return ImageFont.truetype(f'{FD}{"InterDisplay" if disp else "Inter"}-{w}.otf', int(sz))
 def MONO(sz): return ImageFont.truetype('/usr/share/fonts/truetype/jetbrains-mono/JetBrainsMono-Bold.ttf', int(sz))
 GOLD = (245, 183, 0); PANEL = (11, 18, 32)
-COL = {'T1': (255, 159, 28), 'T2': (91, 141, 239), 'T3': (63, 200, 185), 'T4': (199, 125, 255), 'T5': (255, 93, 115), 'KMZ': (205, 210, 220)}
+COL = {'T1': (255, 128, 40), 'T2': (91, 141, 239), 'T3': (63, 200, 185), 'T4': (199, 125, 255), 'T5': (255, 93, 115), 'KMZ': (205, 210, 220)}
 
 
 def hexc(c): return tuple(int(x) for x in c)

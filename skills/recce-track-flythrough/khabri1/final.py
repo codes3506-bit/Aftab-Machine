@@ -32,6 +32,14 @@ def track3d(llz, step=2.0, lift=1.2):
     d = np.r_[0, np.cumsum(np.hypot(*np.diff(P, axis=0).T))]; t = np.arange(0, d[-1], step)
     e2 = np.interp(t, d, e); n2 = np.interp(t, d, n); return np.c_[e2, n2, Sc.height(e2, n2) + lift], t
 TR = {k: track3d(v['ll']) for k, v in PR.items()}
+RL_POST = 133                                                    # post RL as given by the user (destination input, not computed)
+DSM_BIAS = pz - RL_POST                                          # Cop GLO-30 is a surface model: reading at the post vs the given RL
+def _faces():                                                    # mean slope of the S / N faces, 30-250 m from the post (Cop GLO-30, 10 m sampling)
+    xs = np.arange(-300, 301, 10.0); X, Y = np.meshgrid(xs, xs); Z = Sc.height(pe + X.ravel(), pn + Y.ravel()).reshape(X.shape)
+    gy, gx = np.gradient(Z, 10.0); S_ = np.degrees(np.arctan(np.hypot(gx, gy))); Rr = np.hypot(X, Y); band = (Rr > 30) & (Rr < 250)
+    return float(S_[band & (Y < -np.abs(X) * 0.5)].mean()), float(S_[band & (Y > np.abs(X) * 0.5)].mean())
+FACE_S, FACE_N = _faces()
+TAKEOFF_CH = MT['T4']['junction_ch_km']; TAKEOFF_EN = TR['T4'][0][0, :2]
 KMZ3 = [track3d(p['pts'], 4.0)[0] for p in kml() if p['kind'] == 'line']
 
 def sm(x): x = np.clip(x, 0, 1); return x * x * x * (x * (6 * x - 15) + 10)
@@ -90,7 +98,7 @@ def shot1(t):
     def ttl(L):
         d = ImageDraw.Draw(L); d.text((W / 2, H / 2 - 74 * s), 'TRACK RECCE  ·  OPTIONS', font=F(30 * s, 'SemiBold'), fill=GOLD, anchor='mm')
         d.text((W / 2, H / 2), 'KHABRI-1 HILL POST', font=F(84 * s, 'Bold', True), fill=(255, 255, 255), anchor='mm')
-        d.text((W / 2, H / 2 + 76 * s), 'Five alignments to the post, compared on the ground', font=F(30 * s, 'Medium'), fill=(225, 228, 235), anchor='mm')
+        d.text((W / 2, H / 2 + 76 * s), 'Five alignments to the post · desk study for decision', font=F(30 * s, 'Medium'), fill=(225, 228, 235), anchor='mm')
     layer_alpha(b, ttl, seg(t, 2.5, 3.8) * (1 - seg(t, 6.8, 7.8)))
     layer_alpha(b, lambda L: chip(L, (70 * s, H - 300 * s), f'DRONE 00:{37 + int(t):02d}', 'Taloband Rg S face · looking N · ASSESSED'), seg(t, 0.8, 1.6))
     return b
@@ -113,9 +121,9 @@ def shot2(t):
         for i in range(len(xy) - 1):
             if v[i] and v[i + 1]: d.line((*xy[i], *xy[i + 1]), fill=(255, 255, 255, 170), width=int(2 * s))
     xy, ok = point_xy(pe, pn)
-    layer_alpha(b, lambda L: pin(L, xy, 'KHABRI-1 HILL POST', 'RL 133 m  ·  25°25\'38.6"N 63°26\'23.2"E', s=s, up=150 * seg(t, 2.5, 3.6) + 1), seg(t, 2.5, 3.2))
-    xy2, ok2 = point_xy(*en(63.43863, 25.42365))
-    if ok2: layer_alpha(b, lambda L: tag(L, xy2, 'Take-off CH 3.92', COL['KMZ'], s, 170, 50), seg(t, 9.5, 10.3))
+    layer_alpha(b, lambda L: pin(L, xy, 'KHABRI-1 HILL POST', f'RL {RL_POST} m  ·  25°25\'38.6"N 63°26\'23.2"E', s=s, up=150 * seg(t, 2.5, 3.6) + 1), seg(t, 2.5, 3.2))
+    xy2, ok2 = point_xy(*TAKEOFF_EN)
+    if ok2: layer_alpha(b, lambda L: tag(L, xy2, f'T4 take-off CH {TAKEOFF_CH:.2f}', COL['KMZ'], s, 170, 50), seg(t, 9.5, 10.3))
     title_bar(b, 'KHABRI-1 HILL POST', 'Taloband Rg · above the Shadi Kaur · Cop GLO-30 terrain (VE 1.0) · Esri 0.6 m imagery', s)
     compass(b, eye, tgt); return b
 
@@ -124,7 +132,7 @@ K3 = [rel(800, -1300, 470), rel(350, -1450, 440), rel(-150, -1400, 430)]; T3_ = 
 def cam3(t): u = seg(t, 0, 10); return catmull(K3, u), catmull(T3_, u)
 def shot3(t):
     eye, tgt = cam3(t); img = render3d(eye, tgt, 40, slope_mix=seg(t, 0.5, 2.5), drain_mix=seg(t, 3, 5))
-    b = to_pil(glow(img, kmz_items(0.6))); xy, ok = point_xy(pe, pn); pin(b, xy, 'HILL POST', 'RL 133', s=s, up=110)
+    b = to_pil(glow(img, kmz_items(0.6))); xy, ok = point_xy(pe, pn); pin(b, xy, 'HILL POST', f'RL {RL_POST}', s=s, up=110)
     title_bar(b, 'TERRAIN · SLOPE & DRAINAGE', 'Slope from Cop GLO-30 · D8 flow lines > 2 ha', s)
     def legend(L):
         panel(L, (60 * s, H - 330 * s, 620 * s, H - 60 * s), 'SLOPE (deg)', s=s, blur=False)
@@ -136,8 +144,8 @@ def shot3(t):
         d = ImageDraw.Draw(L); d.line((90 * s, H - 135 * s, 150 * s, H - 135 * s), fill=(64, 191, 255), width=int(6 * s)); text(L, (165 * s, H - 150 * s), 'Drainage line / nala', F(24 * s, 'Medium'), sc=s)
     layer_alpha(b, legend, seg(t, 0.8, 1.6))
     xs, _ = point_xy(pe - 60, pn - 260); xn, _ = point_xy(pe + 40, pn + 230)
-    layer_alpha(b, lambda L: tag(L, xs, 'S FACE ≈ 21°  (scarp)', (255, 130, 90), s, 380, -40), seg(t, 5.5, 6.2))
-    layer_alpha(b, lambda L: tag(L, xn, 'N SIDE ≈ 8°  · strike hollow', (120, 220, 255), s, 260, -120), seg(t, 6.3, 7))
+    layer_alpha(b, lambda L: tag(L, xs, f'S FACE ≈ {FACE_S:.0f}° (mean, 250 m)', (255, 130, 90), s, 380, -40), seg(t, 5.5, 6.2))
+    layer_alpha(b, lambda L: tag(L, xn, f'N FACE ≈ {FACE_N:.0f}° (mean, 250 m)', (120, 220, 255), s, 260, -120), seg(t, 6.3, 7))
     compass(b, eye, tgt); return b
 
 # ---------------------------------------------------------------- 30-40 strata
@@ -155,16 +163,13 @@ def shot4(t):
     dd = ImageDraw.Draw(b); n = max(2, int(len(d_) * seg(t, 0.4, 3.5)))
     X = gx + (d_ + 450) / 900 * gw; Y = gy + gh - (z_ - 20) / 150 * gh
     dd.polygon([(X[0], gy + gh)] + list(zip(X[:n], Y[:n])) + [(X[n - 1], gy + gh)], fill=(150, 125, 95, 255))
-    for k in range(1, 7):
-        zl = 30 + k * 18
-        for i in range(n - 1):
-            if zl < z_[i]: dd.line((X[i], gy + gh - (zl - 20 + 0.004 * d_[i]) / 150 * gh, X[i + 1], gy + gh - (zl - 20 + 0.004 * d_[i + 1]) / 150 * gh), fill=(110, 90, 68, 255), width=3)
     dd.line(list(zip(X[:n], Y[:n])), fill=GOLD, width=8)
     for zl in (40, 80, 120, 160): yl = gy + gh - (zl - 20) / 150 * gh; dd.line((gx, yl, gx + gw, yl), fill=(255, 255, 255, 50), width=2); dd.text((gx - 14, yl), f'{zl} m', font=F(22 * s), fill=(180, 186, 198), anchor='rm')
     text(b, (gx, gy + gh + 20), 'S', F(34 * s, 'Bold'), sc=s); text(b, (gx + gw, gy + gh + 20), 'N', F(34 * s, 'Bold'), anchor='ra', sc=s)
     xp = gx + gw / 2; dd.line((xp, gy, xp, gy + gh), fill=(255, 255, 255, 140), width=3); text(b, (xp + 16, gy + 10), 'POST', F(26 * s, 'Bold'), sc=s)
-    layer_alpha(b, lambda L: tag(L, (gx + gw * 0.3, gy + gh * 0.55), 'Steep S face ≈ 21° – scarp', (255, 130, 90), s, -60, -160), seg(t, 3.5, 4.2))
-    layer_alpha(b, lambda L: tag(L, (gx + gw * 0.72, gy + gh * 0.42), 'N side · strike hollow', (120, 220, 255), s, 60, -170), seg(t, 4.3, 5))
+    iS = int(np.argmin(np.abs(d_ + 120))); iN = int(np.argmin(np.abs(d_ - 120)))
+    layer_alpha(b, lambda L: tag(L, (X[iS], Y[iS]), f'S face ≈ {FACE_S:.0f}°', (255, 130, 90), s, -60, -160), seg(t, 3.5, 4.2))
+    layer_alpha(b, lambda L: tag(L, (X[iN], Y[iN]), f'N face ≈ {FACE_N:.0f}°', (120, 220, 255), s, 60, -170), seg(t, 4.3, 5))
     text(b, (x0, y0 + dr.shape[0] + 20), 'DRONE 00:58–01:08 · post ridge, S face · ASSESSED', F(24 * s, 'Bold'), fill=GOLD, sc=s)
     def notes(L):
         panel(L, (x0 - 20, y0 + dr.shape[0] + 110, W - 100, y0 + dr.shape[0] + 680), 'READING THE STRATA', s=s, blur=False)
@@ -190,13 +195,13 @@ def shot5(t):
     for k in ORDER:
         a, b_ = DRAW[k]
         if t >= a: fr = seg(t, a, b_); items.append(track_item(k, max(fr, 0.01), w=4.6, glow=1.0 if t < b_ + 0.5 else 0.8, pulse=fr if fr < 1 else ((t - b_) * 0.25) % 1))
-    b = to_pil(glow(img, items)); xy, ok = point_xy(pe, pn); pin(b, xy, 'HILL POST', 'RL 133', s=s, up=120)
+    b = to_pil(glow(img, items)); xy, ok = point_xy(pe, pn); pin(b, xy, 'HILL POST', f'RL {RL_POST}', s=s, up=120)
     for k in ORDER:
         if t >= DRAW[k][1]:
             P, _ = TR[k]; i = int(0.35 * len(P)); xy2, v2 = vis(P[i:i + 1])
             if v2[0]: layer_alpha(b, lambda L, k=k, xy2=xy2: tag(L, xy2[0], k, COL[k], s, *TAGOFF[k]), seg(t, DRAW[k][1], DRAW[k][1] + 0.5))
     upto = max([ORDER.index(k) for k in ORDER if t >= DRAW[k][0]] + [-1]); layer_alpha(b, lambda L: legend5(L, upto), seg(t, 0.2, 1))
-    title_bar(b, 'FIVE ALIGNMENTS', 'Least-cost analysis on the terrain model · each forced to arrive from a different side', s)
+    title_bar(b, 'FIVE ALIGNMENTS', 'Least-cost corridors on the terrain model · five distinct approaches to the post', s)
     compass(b, eye, tgt); return b
 
 # ---------------------------------------------------------------- 55-105 one fly-through per option (10 s each)
@@ -217,26 +222,27 @@ def card(L, k):
     panel(L, (x0, y0, W - 70 * s, y0 + 690 * s), f'{k}  ·  {DESC[k].upper()}', accent=COL[k], s=s, blur=False)
     rows = [('New const', f"{m['new_const_m'] / 1000:.2f} km"), ('Max / mean grade', f"{m['max_grade_pct']:.1f} / {m['mean_grade_pct']:.1f} %"),
             ('Length > 1:10 / > 1:5', f"{m['pct_gt_1in10']:.0f} / {m['pct_gt_1in5']:.0f} %"), ('Hairpins · nala xings', f"{m['hairpins']} · {m['nala_xings']}"),
-            ('Cut (assessed)', f"{m['cut_m3']:,.0f} m³"), ('Exposure crest / low gnd', f"{m['expo_dominating_pct']:.0f} / {m['expo_plain_road_pct']:.0f} %"),
+            ('Cut (assessed)', f"{p['cut_total']:,.0f} m³"), ('Exposure crest / low gnd', f"{m['expo_dominating_pct']:.0f} / {m['expo_plain_road_pct']:.0f} %"),
             ('POL · work days', f"{p['total']:,} lit · {p['dur']}")]
     for i, (a, v) in enumerate(rows):
         yy = y0 + 90 * s + i * 50 * s; text(L, (x0 + 30 * s, yy), a, F(22 * s, 'Medium'), fill=(170, 178, 192), sc=s); text(L, (W - 100 * s, yy - 4 * s), v, MONO(27 * s), anchor='ra', sc=s)
     text(L, (x0 + 30 * s, y0 + 455 * s), LONG[k], F(19 * s, 'Medium'), fill=COL[k], sc=s)
-    gx_, gy_, gw, gh = x0 + 70 * s, y0 + 510 * s, 760 * s - 140 * s, 150 * s; d = ImageDraw.Draw(L); pr = PR[k]
+    gx_, gy_, gw, gh = x0 + 70 * s, y0 + 510 * s, 760 * s - 200 * s, 150 * s; d = ImageDraw.Draw(L); pr = PR[k]
     q = [(gx_ + si / 2500 * gw, gy_ + gh - (zi - 20) / 140 * gh) for si, zi in zip(pr['s'][::3], pr['z'][::3])]; d.line(q, fill=COL[k] + (255,), width=int(4 * s))
     for zl in (40, 80, 120): yl = gy_ + gh - (zl - 20) / 140 * gh; d.line((gx_, yl, gx_ + gw, yl), fill=(255, 255, 255, 40), width=1); d.text((gx_ - 6 * s, yl), str(zl), font=F(16 * s), fill=(170, 178, 192), anchor='rm')
     d.text((gx_ + gw, gy_ + gh + 8 * s), '2.5 km', font=F(16 * s), fill=(170, 178, 192), anchor='ra')
+    text(L, (x0 + 30 * s, y0 + 492 * s), f'Elev: Cop GLO-30 surface model, reads {pz:.0f} m at the post vs RL {RL_POST} (≈ +{DSM_BIAS:.0f} m)', F(17 * s, 'Medium'), fill=(200, 205, 215), sc=s)
 def fly(k):
     def f(t):
         eye, tgt, u = cam_fly(k, t); img = render3d(eye, tgt, 40, sun_el=26)
         items = kmz_items(0.45) + [track_item(j, w=2.2, glow=0.2, col=tuple(int(c * 0.5) for c in COL[j])) for j in ORDER if j != k] + [track_item(k, w=6, glow=1.4, pulse=u)]
         b = to_pil(glow(img, items))
         xy, ok = point_xy(pe, pn)
-        if ok and xy[1] > 420 and 300 < xy[0] < W - 1700: pin(b, xy, 'KHABRI-1 HILL POST', 'RL 133', s=s, up=70)
+        if ok and xy[1] > 420 and 300 < xy[0] < W - 1700: pin(b, xy, 'KHABRI-1 HILL POST', f'RL {RL_POST}', s=s, up=170)
         pr = PR[k]; ss_ = np.array(pr['s']); zz = np.array(pr['z']); gg = np.abs(np.array(pr['g'])) * 100; j = int(u * (len(ss_) - 1)); jch = MT[k]['junction_ch_km']
         def hud(L):
             panel(L, (60 * s, H - 330 * s, 760 * s, H - 60 * s), f'{k}  ·  LIVE', accent=COL[k], s=s, blur=False)
-            for r, (lab, val) in enumerate([('CH', f'{jch + ss_[j] / 1000:.2f} km'), ('ELEV', f'{zz[j]:.0f} m'), ('GRADE', (f'1:{100 / gg[j]:.0f}  ({gg[j]:.1f}%)' if gg[j] >= 1 else 'Level (<1 %)'))]):
+            for r, (lab, val) in enumerate([('CH', f'{jch + ss_[j] / 1000:.2f} km'), ('ELEV (DSM)', f'{zz[j]:.0f} m'), ('GRADE', (f'1:{100 / gg[j]:.0f}  ({gg[j]:.1f}%)' if gg[j] >= 1 else 'Level (<1 %)'))]):
                 yy = H - 250 * s + r * 62 * s; text(L, (90 * s, yy), lab, F(24 * s, 'SemiBold'), fill=(170, 178, 192), sc=s); text(L, (730 * s, yy - 6 * s), val, MONO(38 * s), anchor='ra', sc=s)
         layer_alpha(b, hud, seg(t, 0.3, 1.0)); layer_alpha(b, lambda L: card(L, k), seg(t, 0.6, 1.4))
         title_bar(b, f'OPTION {k[1]}  ·  {DESC[k].upper()}', LONG[k], s); compass(b, eye, tgt); return b
@@ -250,46 +256,39 @@ def plan_base():
     img = Sc.render(eye, tgt, fov=34, sun_az=115, sun_el=35, haze=0.2).astype(np.float32); img = grade(img) * 0.85
     items = [dict(xy=vis(P)[0], vis=np.ones(len(P), bool), col=COL['KMZ'], w=2, glow=0.3, ghost=False) for P in KMZ3]
     items += [dict(xy=vis(TR[k][0])[0], vis=np.ones(len(TR[k][0]), bool), col=COL[k], w=4.5, glow=0.7) for k in ORDER]
-    b = to_pil(glow(img, items)); d = ImageDraw.Draw(b)
+    b = to_pil(glow(img, items))
+    PLANOFF = {'T1': (90, -40), 'T2': (-120, 40), 'T3': (-110, -50), 'T4': (-30, 110), 'T5': (110, 40)}
     for k in ORDER:
-        p = PR[k]; a = np.array(p['ll']); e, n = en(a[:, 0], a[:, 1]); z = Sc.height(e, n) + 2; xy, v = vis(np.c_[e, n, z])
-        for (x, y), vA, vB in list(zip(xy, p['visA'], p['visB']))[::3]:
-            if vA: d.ellipse((x - 6, y - 6, x + 6, y + 6), fill=(255, 30, 30, 255))
-            elif vB: d.ellipse((x - 6, y - 6, x + 6, y + 6), outline=(255, 235, 0, 255), width=3)
+        P = TR[k][0]; xy = vis(P[int(0.55 * len(P)):int(0.55 * len(P)) + 1])[0][0]; tag(b, xy, k, COL[k], s, *PLANOFF[k])
     xy0, _ = vis(np.array([[pe, pn, pz]])); xy1, _ = vis(np.array([[pe + 500, pn, pz]])); PLAN['b'] = b; PLAN['mpp'] = 500 / abs(xy1[0, 0] - xy0[0, 0])
     return PLAN['b'], PLAN['mpp']
 def shot7(t):
     base, mpp = plan_base(); z = 1 + 0.04 * sm(t / 9)
     arr = np.asarray(base.convert('RGB')).astype(np.float32) / 255; M = cv2.getRotationMatrix2D((W * 0.33, H * 0.5), 0, z); arr = cv2.warpAffine(arr, M, (W, H))
     grad = np.clip((np.arange(W) - W * 0.50) / (W * 0.12), 0, 1)[None, :, None] * 0.75; b = to_pil(arr * (1 - grad))
-    title_bar(b, 'COMPARISON OF OPTIONS', 'Plan view, N up · factual figures only · exposure from assumed observation points', s)
-    lx, ly = 70 * s, H - 330 * s; panel(b, (lx - 10 * s, ly - 20 * s, lx + 700 * s, H - 60 * s), 'EXPOSURE (ASSESSED OPs)', s=s, blur=False); d = ImageDraw.Draw(b)
-    d.ellipse((lx + 20 * s, ly + 80 * s, lx + 40 * s, ly + 100 * s), fill=(255, 30, 30)); text(b, (lx + 60 * s, ly + 72 * s), 'Seen from dominating crests (Taloband Rg)', F(22 * s, 'Medium'), sc=s)
-    d.ellipse((lx + 20 * s, ly + 130 * s, lx + 40 * s, ly + 150 * s), outline=(255, 235, 0), width=int(3 * s)); text(b, (lx + 60 * s, ly + 122 * s), 'Seen from W/NW low ground (plain, Turbat Rd)', F(22 * s, 'Medium'), sc=s)
+    title_bar(b, 'COMPARISON OF OPTIONS', 'Plan view, N up · factual figures only · no weighting, no ranking', s)
+    legend5(b, 4); d = ImageDraw.Draw(b)
     north_arrow(b, (W * 0.47, 250 * s), 0, s)
     L_ = 500 / (mpp / z); x, y = 140, H - 400 * s; d.rectangle((x, y, x + L_, y + 10 * s), fill=(255, 255, 255)); d.rectangle((x + L_ / 2, y, x + L_, y + 10 * s), fill=(20, 20, 20), outline=(255, 255, 255))
     text(b, (x, y - 40 * s), '0', F(22 * s, 'SemiBold'), sc=s); text(b, (x + L_, y - 40 * s), '500 m', F(22 * s, 'SemiBold'), anchor='ra', sc=s)
-    tx, ty = W * 0.53, 190 * s; cols = [('', 330), ('New km', 120), ('Max %', 110), ('>1:10', 110), ('>1:5', 100), ('Nala', 90), ('Cut m³', 130), ('Crest', 120), ('Low gnd', 130), ('POL lit', 130), ('Days', 100)]
-    CW = 0.6; xx = [tx]; [xx.append(xx[-1] + c[1] * s * CW) for c in cols]
-    for i, (c, w_) in enumerate(cols): text(b, (xx[i] + (0 if i == 0 else w_ * s * CW - 10), ty), c, F(17 * s, 'SemiBold'), fill=(170, 178, 192), anchor='la' if i == 0 else 'ra', sc=s)
+    tx, ty = W * 0.535, 200 * s; cols = [('', 80), ('New km', 165), ('Max %', 140), ('>1:10', 140), ('>1:5', 125), ('Nala', 115), ('Cut m³', 215), ('Crest', 155), ('Low gnd', 195), ('POL lit', 205), ('Days', 120)]
+    CW = 1 / s; xx = [tx]; [xx.append(xx[-1] + c[1] * s * CW) for c in cols]
+    for i, (c, w_) in enumerate(cols): text(b, (xx[i] + (0 if i == 0 else w_ * s * CW - 10), ty), c, F(20 * s, 'SemiBold'), fill=(170, 178, 192), anchor='la' if i == 0 else 'ra', sc=s)
     for r, k in enumerate(ORDER):
         a = seg(t, 0.8 + r * 0.6, 1.3 + r * 0.6)
-        m = MT[k]; vals = [f'{k} {DESC[k]}', f"{m['new_const_m'] / 1000:.2f}", f"{m['max_grade_pct']:.1f}", f"{m['pct_gt_1in10']:.0f}%", f"{m['pct_gt_1in5']:.0f}%", f"{m['nala_xings']}",
-                           f"{m['cut_m3']:,.0f}", f"{m['expo_dominating_pct']:.0f}%", f"{m['expo_plain_road_pct']:.0f}%", f"{POL[k]['total']:,}", f"{POL[k]['dur']}"]
-        yy = ty + (60 + r * 56) * s
+        m = MT[k]; vals = [k, f"{m['new_const_m'] / 1000:.2f}", f"{m['max_grade_pct']:.1f}", f"{m['pct_gt_1in10']:.0f}%", f"{m['pct_gt_1in5']:.0f}%", f"{m['nala_xings']}",
+                           f"{POL[k]['cut_total']:,.0f}", f"{m['expo_dominating_pct']:.0f}%", f"{m['expo_plain_road_pct']:.0f}%", f"{POL[k]['total']:,}", f"{POL[k]['dur']}"]
+        yy = ty + (75 + r * 72) * s
         def row(L, vals=vals, yy=yy, k=k):
             for i, v in enumerate(vals):
-                text(L, (xx[i] + (0 if i == 0 else cols[i][1] * s * CW - 10), yy), v, F(18 * s, 'Bold') if i == 0 else MONO(19 * s), fill=COL[k] if i == 0 else (240, 242, 246), anchor='la' if i == 0 else 'ra', sc=s)
+                text(L, (xx[i] + (0 if i == 0 else cols[i][1] * s * CW - 10), yy), v, F(26 * s, 'Bold') if i == 0 else MONO(21 * s), fill=COL[k] if i == 0 else (240, 242, 246), anchor='la' if i == 0 else 'ra', sc=s)
         layer_alpha(b, row, a)
-    def radar(L):
-        cx, cy, rr = W * 0.70, 1480, 130 * s; dd = ImageDraw.Draw(L); crit = MC['criteria']; n = len(crit)
-        dd.text((W * 0.53, 1110), 'RELATIVE PERFORMANCE PER CRITERION (outer = best of the five · unweighted)', font=F(17 * s, 'Bold'), fill=GOLD)
-        for q in (0.25, 0.5, 0.75, 1): dd.polygon([(cx + rr * q * math.sin(2 * math.pi * i / n), cy - rr * q * math.cos(2 * math.pi * i / n)) for i in range(n)], outline=(255, 255, 255, 50))
-        for i, c in enumerate(crit):
-            sn = math.sin(2 * math.pi * i / n); dd.text((cx + rr * 1.12 * sn, cy - rr * 1.14 * math.cos(2 * math.pi * i / n)), c, font=F(15 * s, 'Medium'), fill=(200, 205, 215), anchor='lm' if sn > 0.3 else ('rm' if sn < -0.3 else 'mm'))
-        for k in ORDER:
-            sc = MC['scores'][MC['ids'].index(k)]; dd.polygon([(cx + rr * max(v, 0.03) * math.sin(2 * math.pi * i / n), cy - rr * max(v, 0.03) * math.cos(2 * math.pi * i / n)) for i, v in enumerate(sc)], outline=COL[k] + (230,), width=int(3 * s))
-    layer_alpha(b, radar, seg(t, 3.8, 5))
+    def key(L):
+        for i, ln in enumerate(['New km: new construction incl KMZ new tr portion  ·  Max %: steepest 50 m window', '>1:10, >1:5: share of length steeper than that grade',
+                                'Crest / Low gnd: share of length seen from assumed OPs (Taloband crests / W–NW plain)',
+                                'Cut: assessed from 30 m DEM, 14 ft formation  ·  POL and days: engr plt stds + 10 % margin']):
+            text(L, (W * 0.535, ty + 470 * s + i * 44 * s), ln, F(19 * s, 'Medium'), fill=(190, 196, 208), sc=s)
+    layer_alpha(b, key, seg(t, 3.8, 4.6))
     def foot(L):
         panel(L, (W * 0.53 - 16 * s, H - 170 * s, W - 70 * s, H - 50 * s), None, s=s, blur=False)
         text(L, (W * 0.53, H - 150 * s), 'Cut, POL and work days: 30 m DEM, ±50 % (assessed) · Days: 1 Dozer + 1 Excavator', F(18 * s, 'Medium'), fill=(230, 233, 240), sc=s)
@@ -302,14 +301,14 @@ def shot8(t):
     fade = 1 - seg(t, 4.6, 6); b = to_pil(arr * fade)
     def crd(L):
         d = ImageDraw.Draw(L); d.text((W / 2, 150 * s), 'OPTIONS FOR DECISION', font=F(54 * s, 'Bold', True), fill=(255, 255, 255), anchor='ma')
-        d.text((W / 2, 225 * s), 'Khabri-1 hill post (RL 133) · five alignments · desk study on Cop GLO-30 and 0.6 m imagery', font=F(24 * s, 'Medium'), fill=(200, 205, 215), anchor='ma')
+        d.text((W / 2, 225 * s), f'Khabri-1 hill post (RL {RL_POST}) · five alignments · desk study on Cop GLO-30 and 0.6 m imagery', font=F(24 * s, 'Medium'), fill=(200, 205, 215), anchor='ma')
         cw = (W - 300 * s) / 5
         for i, k in enumerate(ORDER):
             x0 = 150 * s + i * cw; m = MT[k]; p = POL[k]
             panel(L, (x0 + 10 * s, 300 * s, x0 + cw - 10 * s, H - 200 * s), None, accent=COL[k], s=s, blur=False)
             d.text((x0 + cw / 2, 330 * s), k, font=F(48 * s, 'Bold', True), fill=COL[k], anchor='ma'); d.text((x0 + cw / 2, 395 * s), DESC[k], font=F(22 * s, 'SemiBold'), fill=(235, 238, 245), anchor='ma')
             rows = [('New const', f"{m['new_const_m'] / 1000:.2f} km"), ('Max grade', f"{m['max_grade_pct']:.1f} %"), ('> 1:10', f"{m['pct_gt_1in10']:.0f} %"), ('> 1:5', f"{m['pct_gt_1in5']:.0f} %"),
-                    ('Hairpins', f"{m['hairpins']}"), ('Nala xings', f"{m['nala_xings']}"), ('Cut', f"{m['cut_m3']:,.0f} m³"), ('Exposure crest', f"{m['expo_dominating_pct']:.0f} %"),
+                    ('Hairpins', f"{m['hairpins']}"), ('Nala xings', f"{m['nala_xings']}"), ('Cut', f"{p['cut_total']:,.0f} m³"), ('Exposure crest', f"{m['expo_dominating_pct']:.0f} %"),
                     ('Exposure low gnd', f"{m['expo_plain_road_pct']:.0f} %"), ('POL', f"{p['total']:,} lit"), ('Work days', f"{p['dur']}")]
             for r, (a, v) in enumerate(rows):
                 yy = 450 * s + r * 38 * s; d.text((x0 + 30 * s, yy), a, font=F(19 * s, 'Medium'), fill=(170, 178, 192)); d.text((x0 + cw - 30 * s, yy - 2 * s), v, font=MONO(22 * s), fill=(255, 255, 255), anchor='ra')

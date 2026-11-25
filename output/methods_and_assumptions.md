@@ -21,17 +21,17 @@ Local coordinates: equirectangular metres about 25.415 N, 63.435 E (scale error 
 - **Per-track metrics:** paths smoothed (σ 10 m), resampled every 5 m and draped on the DEM.
   - Grade is measured over a 50 m window. "% over 1:10 / 1:7 / 1:5" is the share of length.
   - A hairpin is a heading change over 110° within 80 m.
-  - Cut is side-hill bench cut for a 4.3 m (14 ft) formation, plus grade-cutting to a 1:7 cut-only envelope. This is a **coarse 30 m DEM estimate (±50 %, assessed)**, for ranking only, not for BOQ.
+  - Cut is side-hill bench cut for a 4.3 m (14 ft) formation, plus grade-cutting to a 1:7 cut-only envelope. This is a **coarse 30 m DEM estimate (±50 %, assessed)**, for comparing options only, not for BOQ. The film and table show cut on the same basis as POL: the new alignment plus the KMZ new tr portion it uses.
   - Fill = 0.45 × bench cut.
 - **Exposure:** line of sight from observers (+2 m) to each track point (+3 m, vehicle). Two observer sets, both **assumed** and to be confirmed by you:
   - (a) dominating ground: 12 crest points of the Taloband range above 160 m, within 4 km;
   - (b) W/NW low ground: Turbat Rd and the Shadi Kaur plain, 11 points.
-- **MCDA:**
+- **MCDA (desk analysis only, not shown in the film):** the client asked for options without a recommendation, so no score, weight or rank appears on screen.
   - Min–max scores, 1 = best. Weights: gradient 20, exposure 20, construction effort 15, length 10, drainage 10, stability 10, trafficability 10, maintenance 5.
   - Weights were set before scoring and not tuned.
   - Sensitivity: each weight ±20 % (16 runs), plus exposure ×2 and ×0.5, gradient ×0.5, length ×2, plus a "KMZ new tr built anyway" case.
 - **Geology (assessed, revised after the recce oblique):**
-  - Cross-sections show a steep S face (≈21° mean over 250 m) and a gentle N side falling into a strike hollow (≈85 m).
+  - Mean slope within 30–250 m of the post (Cop GLO-30, 10 m sampling): S face ≈ 22°, N face ≈ 24°. The N face drops about 60 m to a strike hollow about 205 m N (DSM ≈ 84 m). An earlier note of a gentle (≈ 8°) N side was wrong and has been withdrawn.
   - Bedding strikes ENE–WSW on imagery.
   - Bedding crops out on **both** faces: the S face in drone clip 01:03, and the N side in the user's annotated oblique. The oblique is assessed as looking S from the N side, since it shows badlands beyond the crest and no river plain.
   - Read: beds gently dipping or near-horizontal. No dip-slope (planar-slide) face is identified. An earlier "beds dip N" reading, based on ridge asymmetry alone, was withdrawn.
@@ -43,4 +43,5 @@ Local coordinates: equirectangular metres about 25.415 N, 63.435 E (scale error 
 
 ## What is NOT claimed
 - The T1–T5 alignments are LCP-derived lines on a 30 m DEM, not surveyed alignments. Final pegging needs ground recce.
-- No figure on screen will be typed by hand. All are read from `work/metrics.json` / `mcda.json`, produced by the scripts.
+- No figure on screen is typed by hand. All are read from `work/metrics.json` / `pol.json`, or computed from the DEM at render time. The only literal inputs are the post RL (133 m) and coordinates, given by the user.
+- Elevations shown in the film are from Cop GLO-30, a surface model. It reads about 10 m above the given RL at the post (143 m vs 133 m).

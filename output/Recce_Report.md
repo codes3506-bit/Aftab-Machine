@@ -20,24 +20,24 @@
    c. Exposure to dominating ground and to W/ NW low gr (OPs assumed, ***to be confirmed***).
 
 5. **<u>Terrain</u>**. Salient are as fol: -
-   a. <u>Ridge</u>. The post crest is narrow, aligned ENE - WSW. The S face is steep (avg **21°** over 250 m, scarp); the N side falls at about 8° into a strike hollow (RL about 85 m).
+   a. <u>Ridge</u>. The post crest is narrow, aligned ENE - WSW. Both faces are steep: avg **22°** (S) and **24°** (N) within 250 m of the post. The N face drops about 60 m to a strike hollow about 205 m N (DSM about 84 m).
    b. <u>Strata</u>. Bedding strikes ENE - WSW and crops out on both faces (drone 01:03, S face; recce oblique, N side). Beds are assessed gently dipping/ near-horizontal. No dip-slope face has been identified ***(to be confirmed by gr recce)***.
    c. <u>Drainage</u>. Nalas drain both flanks; the N foothill is crossed by 6 x nalas with catchment > 5 ha.
    d. <u>Existing tr to post</u>. No veh tr to the post is visible on imagery. A faint footpath runs W along the ridge spine (unconfirmed).
 
 6. **<u>Alns Consd and Comparison</u>**. Details are as given below: -
 
-| Tr | Aln | New const (km) | Max grade (%) | > 1:10 (%) | > 1:5 (%) | Hairpins | N xings | Cut (cu M, assessed) | Exposure crest / low gr (%) | POL (lit) | Work days | MCDA |
+| Tr | Aln | New const (km) | Max grade (%) | > 1:10 (%) | > 1:5 (%) | Hairpins | N xings | Cut (cu M, assessed, incl KMZ new tr portion) | Exposure crest / low gr (%) | POL (lit) | Work days | MCDA |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
-| T1 | Direct climb - S spur | 0.87 | 30.0 | 66 | 16 | 0 | 0 | 33,958 | 34 / 66 | 35,130 | 140 | 0.52 |
-| T2 | Graded S spur 1:7 | 1.19 | 17.9 | 45 | 0 | 6 | 0 | 4,608 | 37 / 90 | 7,571 | 21 | 0.67 |
-| T3 | W spur/ ridge | 2.09 | 18.8 | 43 | 0 | 5 | 0 | 5,888 | 62 / 91 | 12,158 | 33 | 0.63 |
+| T1 | Direct climb - S spur | 0.87 | 30.0 | 66 | 16 | 0 | 0 | 34,395 | 34 / 66 | 35,130 | 140 | 0.52 |
+| T2 | Graded S spur 1:7 | 1.19 | 17.9 | 45 | 0 | 6 | 0 | 5,045 | 37 / 90 | 7,571 | 21 | 0.67 |
+| T3 | W spur/ ridge | 2.09 | 18.8 | 43 | 0 | 5 | 0 | 7,930 | 62 / 91 | 12,158 | 33 | 0.63 |
 | T4 | E flank | 1.08 | 20.6 | 55 | 1 | 8 | 0 | 7,098 | 50 / 60 | 8,972 | 29 | 0.79 |
-| T5 | Rear/ N foothill | 2.41 | 16.6 | 33 | 0 | 6 | 6 | 2,647 | 34 / 74 | 8,870 | 27 | 0.76 |
+| T5 | Rear/ N foothill | 2.41 | 16.6 | 33 | 0 | 6 | 6 | 4,689 | 34 / 74 | 8,870 | 27 | 0.76 |
 
    a. <u>T1</u>. Max grade **30.0 %** against the permissible 1:7 (14 %); 16 % of its length is steeper than 1:5. It is **not tech feasible** for veh mov (140 work days).
    b. <u>T4 and T5</u>. MCDA ranks T4 (0.79) and T5 (0.76) equal within desk-study accuracy. With ± 20 % on each of the 8 weights, T4 stays first in 16/ 16 runs. If the KMZ new tr is built regardless, the two are level.
-   c. <u>T5</u>. Gentlest grades (max **16.6 %**, 0 % > 1:5, 33 % > 1:10); least cut (2,647 cu M); lowest exposure to dominating crests (34 %). It is the longest (2.41 km incl 0.76 km of the KMZ new tr) with **6 x N xings**.
+   c. <u>T5</u>. Gentlest grades (max **16.6 %**, 0 % > 1:5, 33 % > 1:10); least cut (4,689 cu M); lowest exposure to dominating crests (34 %). It is the longest (2.41 km incl 0.76 km of the KMZ new tr) with **6 x N xings**.
    d. <u>T4</u>. Shortest of the graded alns (1.08 km), nil N xings; however, 55 % > 1:10 with 8 x hairpins and 50 % exposure to the crests.
 
 7. **<u>POL and Work Days (T5)</u>**. Worked out using the user's saved POL/ plt stds (hidden safety margin of 10 % incl): -
