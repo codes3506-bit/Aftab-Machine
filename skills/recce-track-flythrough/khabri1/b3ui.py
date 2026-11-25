@@ -51,9 +51,33 @@ def put(base, im, x, y, o=1.0, sh=True, glow=True):
 def tw(s, f): return ImageDraw.Draw(Image.new('L', (1, 1))).textlength(s, font=f)
 
 
+# ------------------------------------------------------------------ logos (user PPTX, slide order: 44 Div left, 23 KS right)
+import os
+_AD = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'assets')
+def badge(src, white_bg, size=150):
+    k = 4; n = size * k; im = Image.new('RGBA', (n, n), (0, 0, 0, 0)); d = ImageDraw.Draw(im); e = Image.open(src).convert('RGBA')
+    if white_bg:   # crest on a white square -> white disc with gold ring
+        d.ellipse((0, 0, n - 1, n - 1), fill=GOLD + (255,)); d.ellipse((4 * k, 4 * k, n - 4 * k, n - 4 * k), fill=(255, 255, 255, 255))
+        sc = (n - 18 * k) / max(e.size); e = e.resize((int(e.size[0] * sc), int(e.size[1] * sc)), Image.LANCZOS)
+        im.alpha_composite(e, ((n - e.size[0]) // 2, (n - e.size[1]) // 2 + 2 * k))
+    else:          # emblem already a disc
+        d.ellipse((0, 0, n - 1, n - 1), fill=GOLD + (255,))
+        sc = (n - 8 * k) / max(e.size); e = e.resize((int(e.size[0] * sc), int(e.size[1] * sc)), Image.LANCZOS)
+        im.alpha_composite(e, ((n - e.size[0]) // 2, (n - e.size[1]) // 2))
+    return im
+_LG = {}
+def logos(sz):
+    if sz not in _LG:
+        if not os.path.exists(f'{_AD}/logo_44div.png'): _LG[sz] = None
+        else: _LG[sz] = (badge(f'{_AD}/logo_44div.png', False).resize((sz, sz), Image.LANCZOS), badge(f'{_AD}/logo_23ks.png', True).resize((sz, sz), Image.LANCZOS))
+    return _LG[sz]
+
+
 # ------------------------------------------------------------------ bars
 def topbar(base, title):
     bh = q(80); p = Image.new('RGBA', (W, bh), NAVY + (232,)); d = ImageDraw.Draw(p); d.rectangle((0, bh - q(3), W, bh), fill=GOLD)
+    lg = logos(q(68))
+    if lg: p.alpha_composite(lg[0], (q(16), q(6))); p.alpha_composite(lg[1], (W - q(16) - q(68), q(6)))
     d.text((W / 2, bh / 2 - q(1)), title, font=F(40, 'b'), fill=WHITE, anchor='mm'); base.alpha_composite(p)
 
 
@@ -170,8 +194,10 @@ def legend_grade(base, o=1.0):
 
 
 def title_big(base, title, sub, o, t):
-    f = F(70, 'b'); tl = tw(title, f); bw = int(tl + q(150)); bh = q(210) if sub else q(170)
+    f = F(70, 'b'); tl = tw(title, f); LS = q(150); bw = int(tl + 2 * LS + q(150)); bh = q(210) if sub else q(170)
     p = panel_img(bw, bh, NAVY, 0.92, 22, GOLD, 3); d = ImageDraw.Draw(p)
+    lg = logos(LS)
+    if lg: p.alpha_composite(lg[0], (q(30), (bh - LS) // 2)); p.alpha_composite(lg[1], (bw - q(30) - LS, (bh - LS) // 2))
     d.text((bw / 2, q(70)), title, font=f, fill=WHITE, anchor='mm')
     u = min(1, max(0, (t - 1.4) / 1.2)); u = u * u * (3 - 2 * u); lw = int(tl * u); d.rectangle((bw / 2 - lw / 2, q(116), bw / 2 + lw / 2, q(120)), fill=GOLD)
     if sub: d.text((bw / 2, q(158)), sub, font=F(30, 'i'), fill=(225, 230, 240), anchor='mm')

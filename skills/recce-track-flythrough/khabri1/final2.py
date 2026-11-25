@@ -13,7 +13,7 @@ import b3ui as U
 from b3ui import q, F, put, panel_img, table_panel, text_panel, photo_panel, label, GOLD, WHITE, GREY, NAVY, NAVY2, RED, YEL, BLUE, AMBER
 
 ap = argparse.ArgumentParser(); ap.add_argument('out'); ap.add_argument('--t0', type=float, default=0); ap.add_argument('--t1', type=float, default=172)
-ap.add_argument('--stills', default=''); args = ap.parse_args()
+ap.add_argument('--stills', default=''); ap.add_argument('--post', default=''); args = ap.parse_args()
 FPS = 30; W, H = 2560, 1440; U.init(W, H); s = W / 1920
 WA = '/root/.claude/uploads/d35c83c0-ed16-5ab8-ac1e-72068dbafa01/cf77cbb6-WhatsApp_Video_2026-11-25_at_10.26.14.mp4'
 PH = '/tmp/claude-0/-home-user-Aftab-Machine/d35c83c0-ed16-5ab8-ac1e-72068dbafa01/images'
@@ -89,7 +89,7 @@ def post_label(b, lift=70, o=1.0):
 cap = cv2.VideoCapture(WA)
 def drone(tsrc):
     cap.set(cv2.CAP_PROP_POS_MSEC, tsrc * 1000); ok, fr = cap.read()
-    fr = cv2.cvtColor(fr, cv2.COLOR_BGR2RGB)[0:425, 46:802]                     # 16:9, clear of the player bar
+    fr = cv2.cvtColor(fr, cv2.COLOR_BGR2RGB)[0:398, 70:778]                     # 16:9, clear of the player bar and the source's OS watermark
     up = cv2.resize(fr, (W, H), interpolation=cv2.INTER_LANCZOS4).astype(np.float32) / 255
     bl = cv2.GaussianBlur(up, (0, 0), 2.2); up = np.clip(up + 0.5 * (up - bl), 0, 1)
     return grade(up, 0.5)
@@ -353,6 +353,24 @@ if args.stills:
     for T in [float(x) for x in args.stills.split(',')]:
         t_ = time.time(); frame(T).resize((1920, 1080), Image.LANCZOS).save(f'{args.out}_{T:06.2f}.jpg', quality=90); print('still', T, round(time.time() - t_, 1), 's', flush=True)
     sys.exit()
+if args.post:
+    # finishing pass over the full-length render: re-render the drone / title shots (logos + watermark-free crop),
+    # stamp the unit logos onto the top bar of every other frame
+    REDO = [(0, 9.5), (21, 29.5), (39, 49.5), (63, 69.5)]
+    lg = U.logos(q(68)); dec = subprocess.Popen(['ffmpeg', '-v', 'error', '-i', args.post, '-f', 'rawvideo', '-pix_fmt', 'rgb24', '-'], stdout=subprocess.PIPE)
+    enc = subprocess.Popen(['ffmpeg', '-y', '-v', 'error', '-f', 'rawvideo', '-pix_fmt', 'rgb24', '-s', f'{W}x{H}', '-r', str(FPS), '-i', '-', '-c:v', 'libx264', '-preset', 'medium', '-crf', '12',
+                            '-pix_fmt', 'yuv420p', args.out], stdin=subprocess.PIPE)
+    f = 0; t_ = time.time()
+    while True:
+        raw = dec.stdout.read(W * H * 3)
+        if len(raw) < W * H * 3: break
+        T = f / FPS
+        if any(a <= T < b for a, b in REDO): im = frame(T)
+        else:
+            im = Image.frombytes('RGB', (W, H), raw).convert('RGBA'); im.alpha_composite(lg[0], (q(16), q(6))); im.alpha_composite(lg[1], (W - q(16) - q(68), q(6))); im = im.convert('RGB')
+        enc.stdin.write(np.asarray(im).tobytes()); f += 1
+        if f % 150 == 0: print(f'post {f} {time.time() - t_:.0f}s', flush=True)
+    enc.stdin.close(); enc.wait(); print('done post', f, flush=True); sys.exit()
 f0, f1 = int(round(args.t0 * FPS)), int(round(args.t1 * FPS))
 enc = subprocess.Popen(['ffmpeg', '-y', '-v', 'error', '-f', 'rawvideo', '-pix_fmt', 'rgb24', '-s', f'{W}x{H}', '-r', str(FPS), '-i', '-', '-c:v', 'libx264', '-preset', 'medium', '-crf', '12',
                         '-pix_fmt', 'yuv420p', args.out], stdin=subprocess.PIPE)
