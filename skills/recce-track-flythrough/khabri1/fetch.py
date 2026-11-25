@@ -14,6 +14,7 @@ def job(z,W,E_,S,N,d):
         bad.append((xy,str(err)))
     with cf.ThreadPoolExecutor(12) as ex: list(ex.map(get,[(x,y) for x in xs for y in ys]))
     print(z,len(xs),len(ys),'fail',len(bad),bad[:2])
-job(16,63.36,63.51,25.35,25.48,f'{R}/tiles/z16')
-job(17,63.395,63.475,25.38,25.45,f'{R}/tiles/z17')
-job(18,63.410,63.460,25.392,25.438,f'{R}/tiles/z18')
+if __name__=='__main__':
+    job(16,63.36,63.51,25.35,25.48,f'{R}/tiles/z16')
+    job(17,63.395,63.475,25.38,25.45,f'{R}/tiles/z17')
+    job(18,63.410,63.460,25.392,25.438,f'{R}/tiles/z18')

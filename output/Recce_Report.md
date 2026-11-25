@@ -20,7 +20,7 @@
    c. Exposure to dominating ground and to W/ NW low gr (OPs assumed, ***to be confirmed***).
 
 5. **<u>Terrain</u>**. Salient are as fol: -
-   a. <u>Ridge</u>. The post crest is narrow, aligned ENE - WSW. Both faces are steep: avg **22°** (S) and **24°** (N) within 250 m of the post. The N face drops about 60 m to a strike hollow about 205 m N (DSM about 84 m).
+   a. <u>Ridge</u>. The post crest is narrow, aligned ENE - WSW. Both faces are steep: avg **22°** (S) and **23°** (N) within 250 m of the post. The N face drops about 60 m to a strike hollow about 205 m N (DSM about 84 m).
    b. <u>Strata</u>. Bedding strikes ENE - WSW and crops out on both faces (drone 01:03, S face; recce oblique, N side). Beds are assessed gently dipping/ near-horizontal. No dip-slope face has been identified ***(to be confirmed by gr recce)***.
    c. <u>Drainage</u>. Nalas drain both flanks; the N foothill is crossed by 6 x nalas with catchment > 5 ha.
    d. <u>Existing tr to post</u>. No veh tr to the post is visible on imagery. A faint footpath runs W along the ridge spine (unconfirmed).

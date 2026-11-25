@@ -8,7 +8,8 @@ from PIL import Image
 from scipy.ndimage import gaussian_filter
 from geo import *
 
-VE = 1.0
+import os
+VE = float(os.environ.get('VE', '1.5'))
 SKY_TOP = np.array([0.42, 0.62, 0.86]); SKY_HOR = np.array([0.86, 0.84, 0.80])
 
 
@@ -32,8 +33,8 @@ class Scene:
                 im = m.im.crop((int(x0), int(y0), int(x1), int(y1))); pickle.dump((im, mx0, my0, x0, y0, x1, y1), open(cp, 'wb'))
             # grade: Esri olive cast -> neutral warm desert (matches drone footage)
             a = np.asarray(im).astype(np.float32) / 255
-            a = a * np.array([1.06, 1.0, 0.93]); lum = a.mean(2, keepdims=True); a = lum + (a - lum) * 0.85
-            a = np.clip((a - 0.03) * 1.12, 0, 1) ** 0.95
+            a = a * np.array([1.02, 0.985, 1.12]); lum = a.mean(2, keepdims=True); a = lum + (a - lum) * 0.95
+            a = np.clip((a - 0.02) * 1.10, 0, 1) ** 1.06
             im = Image.fromarray((a * 255).astype(np.uint8))
             if max(im.size) > 16000: im = im.resize((im.size[0] // 2, im.size[1] // 2), Image.LANCZOS)
             t = s.ctx.texture(im.size, 3, im.tobytes()); t.build_mipmaps()
@@ -81,6 +82,8 @@ class Scene:
         from scipy.ndimage import map_coordinates
         fi = np.interp(n, ys, np.arange(len(ys))); fj = np.interp(e, xs, np.arange(len(xs)))
         return map_coordinates(Z, [fi, fj], order=1)
+
+    def height_m(s, e, n): return s.height(e, n) / VE
 
     def matrices(s, eye, tgt, fov):
         eye = np.asarray(eye, float); tgt = np.asarray(tgt, float); up = np.array([0, 0, 1.0])
@@ -148,10 +151,11 @@ void main(){
   float k18,k17,k16; vec3 c18=smp(tex18,ext18,4.0,k18); vec3 c17=smp(tex17,ext17,2.0,k17); vec3 c16=smp(tex16,ext16,1.0,k16);
   vec3 col=mix(mix(c16,c17,k17),c18,k18);
   vec3 n=normalize(wn); float dif=max(dot(n,normalize(sun)),0.0);
-  float shade=0.80+0.32*dif; col*=shade;
+  float shade=(0.55+0.62*dif)/(0.55+0.62*max(sun.z,0.3)); col*=mix(1.0,shade,0.9);
   if(slope_mix>0.0){ float m=slope_mix*smoothstep(6.0,14.0,vs)*0.5*(1.0-smoothstep(1300.0,2200.0,length(wp.xy-focus))); col=mix(col,ramp(vs)*(0.75+0.35*dif),m); }
   if(drain_mix>0.0){ float m=drain_mix*smoothstep(0.9,1.4,va)*(1.0-smoothstep(1500.0,2500.0,length(wp.xy-focus))); col=mix(col,vec3(0.2,0.78,1.0),m*0.95); }
   col*=1.0-dim;
-  float d=length(wp-eye); float f=1.0-exp(-pow(d/(16000.0/haze),1.7));
-  col=mix(col,vec3(0.80,0.80,0.79),f*0.7);
+  float d=length(wp-eye); float f=1.0-exp(-pow(d/(26000.0/haze),1.4));
+  col=mix(col,vec3(0.82,0.83,0.84),f*0.75);
+  float l=dot(col,vec3(0.299,0.587,0.114)); col=(col-0.5)*1.07+0.5;
   o=vec4(col,1.0); }'''
