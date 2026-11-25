@@ -269,7 +269,7 @@ def shot7(t):
     north_arrow(b, (W * 0.47, 250 * s), 0, s)
     L_ = 500 / (mpp / z); x, y = 140, H - 400 * s; d.rectangle((x, y, x + L_, y + 10 * s), fill=(255, 255, 255)); d.rectangle((x + L_ / 2, y, x + L_, y + 10 * s), fill=(20, 20, 20), outline=(255, 255, 255))
     text(b, (x, y - 40 * s), '0', F(22 * s, 'SemiBold'), sc=s); text(b, (x + L_, y - 40 * s), '500 m', F(22 * s, 'SemiBold'), anchor='ra', sc=s)
-    tx, ty = W * 0.53, 190 * s; cols = [('', 330), ('New km', 120), ('Max %', 110), ('>1:10', 110), ('>1:5', 100), ('Nala', 90), ('Cut m³', 140), ('Crest', 100), ('Low gnd', 120), ('POL lit', 140), ('Days', 100)]
+    tx, ty = W * 0.53, 190 * s; cols = [('', 330), ('New km', 120), ('Max %', 110), ('>1:10', 110), ('>1:5', 100), ('Nala', 90), ('Cut m³', 130), ('Crest', 120), ('Low gnd', 130), ('POL lit', 130), ('Days', 100)]
     CW = 0.6; xx = [tx]; [xx.append(xx[-1] + c[1] * s * CW) for c in cols]
     for i, (c, w_) in enumerate(cols): text(b, (xx[i] + (0 if i == 0 else w_ * s * CW - 10), ty), c, F(17 * s, 'SemiBold'), fill=(170, 178, 192), anchor='la' if i == 0 else 'ra', sc=s)
     for r, k in enumerate(ORDER):
@@ -285,13 +285,15 @@ def shot7(t):
         cx, cy, rr = W * 0.70, 1480, 130 * s; dd = ImageDraw.Draw(L); crit = MC['criteria']; n = len(crit)
         dd.text((W * 0.53, 1110), 'RELATIVE PERFORMANCE PER CRITERION (outer = best of the five · unweighted)', font=F(17 * s, 'Bold'), fill=GOLD)
         for q in (0.25, 0.5, 0.75, 1): dd.polygon([(cx + rr * q * math.sin(2 * math.pi * i / n), cy - rr * q * math.cos(2 * math.pi * i / n)) for i in range(n)], outline=(255, 255, 255, 50))
-        for i, c in enumerate(crit): dd.text((cx + rr * 1.2 * math.sin(2 * math.pi * i / n), cy - rr * 1.2 * math.cos(2 * math.pi * i / n)), c, font=F(15 * s, 'Medium'), fill=(200, 205, 215), anchor='mm')
+        for i, c in enumerate(crit):
+            sn = math.sin(2 * math.pi * i / n); dd.text((cx + rr * 1.12 * sn, cy - rr * 1.14 * math.cos(2 * math.pi * i / n)), c, font=F(15 * s, 'Medium'), fill=(200, 205, 215), anchor='lm' if sn > 0.3 else ('rm' if sn < -0.3 else 'mm'))
         for k in ORDER:
             sc = MC['scores'][MC['ids'].index(k)]; dd.polygon([(cx + rr * max(v, 0.03) * math.sin(2 * math.pi * i / n), cy - rr * max(v, 0.03) * math.cos(2 * math.pi * i / n)) for i, v in enumerate(sc)], outline=COL[k] + (230,), width=int(3 * s))
     layer_alpha(b, radar, seg(t, 3.8, 5))
     def foot(L):
-        panel(L, (W * 0.53 - 16 * s, H - 150 * s, W - 70 * s, H - 50 * s), None, s=s, blur=False)
-        text(L, (W * 0.53, H - 128 * s), 'Cut, POL and work days: 30 m DEM, ±50 % (assessed) · Days: 1 Dozer + 1 Excavator · Confirm all alns by gr recce', F(18 * s, 'Medium'), fill=(230, 233, 240), sc=s)
+        panel(L, (W * 0.53 - 16 * s, H - 170 * s, W - 70 * s, H - 50 * s), None, s=s, blur=False)
+        text(L, (W * 0.53, H - 150 * s), 'Cut, POL and work days: 30 m DEM, ±50 % (assessed) · Days: 1 Dozer + 1 Excavator', F(18 * s, 'Medium'), fill=(230, 233, 240), sc=s)
+        text(L, (W * 0.53, H - 112 * s), 'Confirm all alignments by gr recce before pegging', F(18 * s, 'Medium'), fill=GOLD, sc=s)
     layer_alpha(b, foot, seg(t, 5, 5.8)); return b
 
 # ---------------------------------------------------------------- 114-120 options summary (no recommendation)
