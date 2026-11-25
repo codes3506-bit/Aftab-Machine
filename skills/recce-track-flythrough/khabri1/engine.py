@@ -24,8 +24,12 @@ class Scene:
         # ---- textures (crop z18/z17 to useful extents to stay inside GL limits)
         s.tex = {}; s.ext = {}
         for z, box in ((18, (63.410, 63.460, 25.392, 25.438)), (17, (63.395, 63.475, 25.380, 25.450)), (16, (63.36, 63.51, 25.35, 25.48))):
-            m = Mos(z); x0, y0 = m.px(box[0], box[3]); x1, y1 = m.px(box[1], box[2])
-            im = m.im.crop((int(x0), int(y0), int(x1), int(y1)))
+            import os, pickle
+            cp = f'{R}/work/texcache_{z}.pkl'
+            if os.path.exists(cp): im, mx0, my0, x0, y0, x1, y1 = pickle.load(open(cp, 'rb'))
+            else:
+                m = Mos(z); x0, y0 = m.px(box[0], box[3]); x1, y1 = m.px(box[1], box[2]); mx0, my0 = m.x0, m.y0
+                im = m.im.crop((int(x0), int(y0), int(x1), int(y1))); pickle.dump((im, mx0, my0, x0, y0, x1, y1), open(cp, 'wb'))
             # grade: Esri olive cast -> neutral warm desert (matches drone footage)
             a = np.asarray(im).astype(np.float32) / 255
             a = a * np.array([1.06, 1.0, 0.93]); lum = a.mean(2, keepdims=True); a = lum + (a - lum) * 0.85
@@ -36,7 +40,7 @@ class Scene:
             t.filter = (moderngl.LINEAR_MIPMAP_LINEAR, moderngl.LINEAR); t.anisotropy = 16.0
             s.tex[z] = t
             tx0, ty0 = tile_xy(box[0], box[3], z); tx1, ty1 = tile_xy(box[1], box[2], z)
-            s.ext[z] = (int(x0) / 256 + m.x0, int(y0) / 256 + m.y0, (int(x1) - int(x0)) / 256, (int(y1) - int(y0)) / 256)
+            s.ext[z] = (int(x0) / 256 + mx0, int(y0) / 256 + my0, (int(x1) - int(x0)) / 256, (int(y1) - int(y0)) / 256)
         # ---- mesh (fine 6 m in the core, 30 m outside)
         Wd, Ed, Sd, Nd = 63.365, 63.505, 25.355, 25.475
         ex0, ny0 = en(Wd, Sd); ex1, ny1 = en(Ed, Nd)
@@ -61,7 +65,7 @@ class Scene:
         for k, z in enumerate((18, 17, 16)):
             s.tex[z].use(k); s.prog[f'tex{z}'].value = k
             s.prog[f'ext{z}'].value = tuple(float(a) for a in s.ext[z])
-        sam = 4
+        sam = 2
         s.fbo = s.ctx.framebuffer([s.ctx.renderbuffer((W, H), 4, samples=sam)], s.ctx.depth_renderbuffer((W, H), samples=sam))
         s.fbo2 = s.ctx.framebuffer([s.ctx.renderbuffer((W, H), 4)], s.ctx.depth_texture((W, H)))
         s.fbo_d = s.ctx.framebuffer(depth_attachment=s.ctx.depth_texture((W, H)))
@@ -136,7 +140,7 @@ uniform vec3 sun; uniform vec3 eye; uniform vec2 focus; uniform float slope_mix;
 in vec3 wp; in vec3 wn; in vec2 vt; in float vs; in float va; out vec4 o;
 vec3 smp(sampler2D t, vec4 e, float zf, out float ok){
   vec2 q=vt*zf; vec2 uv=(q-e.xy)/e.zw; ok=step(0.0,uv.x)*step(uv.x,1.0)*step(0.0,uv.y)*step(uv.y,1.0);
-  return texture(t,uv).rgb; }
+  return texture(t,uv,-0.7).rgb; }
 vec3 ramp(float s){ // slope 0..40 deg: green-yellow-orange-red
   vec3 a=vec3(0.10,0.60,0.30), b=vec3(0.99,0.88,0.40), c=vec3(0.96,0.43,0.26), d=vec3(0.65,0.0,0.15);
   float t=clamp(s/40.0,0.0,1.0)*3.0; return t<1.0?mix(a,b,t):(t<2.0?mix(b,c,t-1.0):mix(c,d,t-2.0)); }
@@ -144,10 +148,10 @@ void main(){
   float k18,k17,k16; vec3 c18=smp(tex18,ext18,4.0,k18); vec3 c17=smp(tex17,ext17,2.0,k17); vec3 c16=smp(tex16,ext16,1.0,k16);
   vec3 col=mix(mix(c16,c17,k17),c18,k18);
   vec3 n=normalize(wn); float dif=max(dot(n,normalize(sun)),0.0);
-  float shade=0.62+0.55*dif; col*=shade;
+  float shade=0.80+0.32*dif; col*=shade;
   if(slope_mix>0.0){ float m=slope_mix*smoothstep(6.0,14.0,vs)*0.5*(1.0-smoothstep(1300.0,2200.0,length(wp.xy-focus))); col=mix(col,ramp(vs)*(0.75+0.35*dif),m); }
   if(drain_mix>0.0){ float m=drain_mix*smoothstep(0.9,1.4,va)*(1.0-smoothstep(1500.0,2500.0,length(wp.xy-focus))); col=mix(col,vec3(0.2,0.78,1.0),m*0.95); }
   col*=1.0-dim;
-  float d=length(wp-eye); float f=1.0-exp(-pow(d/(9000.0/haze),1.6));
-  col=mix(col,vec3(0.80,0.80,0.79),f*0.85);
+  float d=length(wp-eye); float f=1.0-exp(-pow(d/(16000.0/haze),1.7));
+  col=mix(col,vec3(0.80,0.80,0.79),f*0.7);
   o=vec4(col,1.0); }'''

@@ -6,18 +6,18 @@ FD = '/usr/share/fonts/opentype/inter/'
 def F(sz, w='SemiBold', disp=False): return ImageFont.truetype(f'{FD}{"InterDisplay" if disp else "Inter"}-{w}.otf', int(sz))
 def MONO(sz): return ImageFont.truetype('/usr/share/fonts/truetype/jetbrains-mono/JetBrainsMono-Bold.ttf', int(sz))
 GOLD = (245, 183, 0); PANEL = (11, 18, 32)
-COL = {'T1': (150, 156, 168), 'T2': (91, 141, 239), 'T3': (63, 184, 175), 'T4': (199, 125, 255), 'T5': (245, 183, 0), 'KMZ': (205, 210, 220)}
+COL = {'T1': (255, 159, 28), 'T2': (91, 141, 239), 'T3': (63, 200, 185), 'T4': (199, 125, 255), 'T5': (255, 93, 115), 'KMZ': (205, 210, 220)}
 
 
 def hexc(c): return tuple(int(x) for x in c)
 
 
 def glow_tracks(img, items, scale=1.0):
-    """img float HxWx3 0..1. items: list of dict(xy=(n,2), vis=(n,), col, w, glow, pulse=None (0..1), dash)"""
-    H, W = img.shape[:2]
-    core = np.zeros((H, W, 3), np.float32); halo = np.zeros((H, W, 3), np.float32); occl = np.zeros((H, W, 3), np.float32)
+    """img float32 HxWx3 0..1. Core lines at full res; bloom halos at quarter res (same look, 16x cheaper)."""
+    H, W = img.shape[:2]; q = 4
+    core = np.zeros((H, W, 3), np.float32); halo = np.zeros((H // q, W // q, 3), np.float32); occl = np.zeros((H, W, 3), np.float32)
     for it in items:
-        xy = it['xy']; vis = it['vis']; c = np.array(it['col'], np.float32) / 255; w = it['w'] * scale; g = it.get('glow', 1.0)
+        xy = np.asarray(it['xy'], np.float32); vis = it['vis']; c = np.array(it['col'], np.float32) / 255; w = it['w'] * scale; g = it.get('glow', 1.0)
         segs = []; cur = []
         for k in range(len(xy)):
             if vis[k]: cur.append(xy[k])
@@ -25,24 +25,24 @@ def glow_tracks(img, items, scale=1.0):
         if cur: segs.append(cur)
         for sgm in segs:
             if len(sgm) < 2: continue
-            p = (np.array(sgm) * 8).astype(np.int32).reshape(-1, 1, 2)
+            a = np.array(sgm); p = (a * 8).astype(np.int32).reshape(-1, 1, 2)
             cv2.polylines(core, [p], False, c.tolist(), max(1, int(w)), cv2.LINE_AA, shift=3)
-            cv2.polylines(halo, [p], False, (c * g).tolist(), max(2, int(w * 3)), cv2.LINE_AA, shift=3)
-        # hidden parts: faint dotted ghost so the viewer keeps continuity
-        hid = [xy[k] for k in range(len(xy)) if not it['vis'][k] and it.get('ghost', True) and 0 <= xy[k][0] < W and 0 <= xy[k][1] < H]
-        for q in hid[::3]: cv2.circle(occl, (int(q[0]), int(q[1])), max(1, int(w * 0.25)), (c * 0.5).tolist(), -1, cv2.LINE_AA)
+            ph = (a / q * 8).astype(np.int32).reshape(-1, 1, 2)
+            cv2.polylines(halo, [ph], False, (c * g).tolist(), max(1, int(w * 3 / q)), cv2.LINE_AA, shift=3)
+        if it.get('ghost', True):
+            hid = xy[~np.asarray(vis)]; hid = hid[(hid[:, 0] >= 0) & (hid[:, 0] < W) & (hid[:, 1] >= 0) & (hid[:, 1] < H)] if len(hid) else hid
+            for p_ in hid[::3]: cv2.circle(occl, (int(p_[0]), int(p_[1])), max(1, int(w * 0.25)), (c * 0.5).tolist(), -1, cv2.LINE_AA)
         if it.get('pulse') is not None and len(xy) > 3:
             k = int(it['pulse'] * (len(xy) - 1)); r = int(w * 2.2)
             for j in range(max(0, k - 25), k + 1):
                 if vis[j]:
-                    a = (1 - (k - j) / 25) ** 2
-                    cv2.circle(core, (int(xy[j][0]), int(xy[j][1])), max(1, int(r * a)), (np.minimum(1, c * 0.4 + 0.75) * a).tolist(), -1, cv2.LINE_AA)
-    out = img.copy()
-    out = out * (1 - 0.35 * np.clip(halo.max(2, keepdims=True) * 2, 0, 1))      # slight darkening under line = contrast
-    L = sum(cv2.GaussianBlur(halo, (0, 0), s_) * k for s_, k in ((4 * scale, 0.45), (14 * scale, 0.3), (38 * scale, 0.2)))
-    cm = core.max(2, keepdims=True); out = out * (1 - np.clip(cm * 1.2, 0, 1)) + core   # opaque coloured core
-    out += L + cv2.GaussianBlur(core, (0, 0), 1.2 * scale) * 0.25 + occl * 0.6
-    m = np.maximum(out.max(2, keepdims=True), 1.0); return np.clip(out / m ** 0.85, 0, 1)   # hue-preserving soft clip
+                    a_ = (1 - (k - j) / 25) ** 2
+                    cv2.circle(core, (int(xy[j][0]), int(xy[j][1])), max(1, int(r * a_)), (np.minimum(1, c * 0.4 + 0.75) * a_).tolist(), -1, cv2.LINE_AA)
+    L = sum(cv2.GaussianBlur(halo, (0, 0), s_ / q) * k for s_, k in ((4 * scale, 0.45), (14 * scale, 0.3), (38 * scale, 0.2)))
+    L = cv2.resize(L, (W, H), interpolation=cv2.INTER_LINEAR)
+    cm = core.max(2, keepdims=True); out = img * (1 - 0.3 * np.clip(L.max(2, keepdims=True) * 2, 0, 1))
+    out = out * (1 - np.clip(cm * 1.2, 0, 1)) + core + L + occl * 0.6
+    m = np.maximum(out.max(2, keepdims=True), 1.0); return np.clip(out / m ** 0.85, 0, 1).astype(np.float32)
 
 
 def to_pil(a): return Image.fromarray((np.clip(a, 0, 1) * 255).astype(np.uint8)).convert('RGBA')
@@ -104,10 +104,14 @@ def title_bar(base, t, sub=None, s=1.0):
     if sub: d.text((210 * s, 104 * s), sub, font=F(26 * s, 'Medium'), fill=(220, 225, 235))
 
 
+_VIG = {}
 def grade(img, warm=1.0):
-    """shared look for 3D + drone: lifted blacks, gentle S-curve, warm highlights"""
-    a = np.clip(img, 0, 1); a = a * 0.94 + 0.025
+    """shared look for 3D + drone: lifted blacks, gentle S-curve, warm highlights, soft vignette (float32)"""
+    a = np.clip(img, 0, 1).astype(np.float32); a = a * 0.94 + 0.025
     a = a + 0.08 * (a - 0.5) * (1 - np.abs(2 * a - 1))
-    a = a * np.array([1.03, 1.0, 0.95]) ** warm
-    yy = np.linspace(0, 1, a.shape[0])[:, None]; xx = np.linspace(-1, 1, a.shape[1])[None]
-    vig = 1 - 0.22 * (xx ** 2 * 0.6 + (2 * yy - 1) ** 2 * 0.5); return np.clip(a * vig[..., None], 0, 1)
+    a *= np.array([1.03, 1.0, 0.95], np.float32) ** warm
+    key = a.shape[:2]
+    if key not in _VIG:
+        yy = np.linspace(0, 1, key[0], dtype=np.float32)[:, None]; xx = np.linspace(-1, 1, key[1], dtype=np.float32)[None]
+        _VIG[key] = (1 - 0.18 * (xx ** 2 * 0.6 + (2 * yy - 1) ** 2 * 0.5))[..., None]
+    return np.clip(a * _VIG[key], 0, 1)
