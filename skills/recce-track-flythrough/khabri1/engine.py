@@ -10,6 +10,8 @@ from geo import *
 
 import os
 VE = float(os.environ.get('VE', '1.5'))
+HD = os.environ.get('TERRAIN_HD', '0') == '1'          # sharpened imagery + imagery-derived micro-relief shading
+BUMP = float(os.environ.get('BUMP', '1.0'))
 SKY_TOP = np.array([0.42, 0.62, 0.86]); SKY_HOR = np.array([0.86, 0.84, 0.80])
 
 
@@ -23,7 +25,7 @@ class Scene:
         s.W, s.H = W, H; s.focus = (0.0, 0.0)
         s.ctx = moderngl.create_standalone_context(require=330)
         # ---- textures (crop z18/z17 to useful extents to stay inside GL limits)
-        s.tex = {}; s.ext = {}
+        s.tex = {}; s.ext = {}; s.det = {}
         for z, box in ((18, (63.410, 63.460, 25.392, 25.438)), (17, (63.395, 63.475, 25.380, 25.450)), (16, (63.36, 63.51, 25.35, 25.48))):
             import os, pickle
             cp = f'{R}/work/texcache_{z}.pkl'
@@ -35,7 +37,20 @@ class Scene:
             a = np.asarray(im).astype(np.float32) / 255
             a = a * np.array([1.02, 0.985, 1.12]); lum = a.mean(2, keepdims=True); a = lum + (a - lum) * 0.95
             a = np.clip((a - 0.02) * 1.10, 0, 1) ** 1.06
+            if HD and z >= 17:
+                # local-contrast sharpening of the imagery (unsharp mask on luminance)
+                lum = a.mean(2); bl = cv2.GaussianBlur(lum, (0, 0), 2.2 if z == 18 else 1.6); bl2 = cv2.GaussianBlur(lum, (0, 0), 18)
+                a = np.clip(a + ((lum - bl) * 0.75 + (lum - bl2) * 0.22)[..., None], 0, 1)
             im = Image.fromarray((a * 255).astype(np.uint8))
+            if HD:
+                # imagery-derived micro-relief: gradient of high-passed luminance -> per-pixel normal perturbation
+                L = np.asarray(im).astype(np.float32).mean(2) / 255
+                hp = cv2.GaussianBlur(L, (0, 0), 1.2) - cv2.GaussianBlur(L, (0, 0), 14)
+                gu = cv2.Sobel(hp, cv2.CV_32F, 1, 0, ksize=3) / 8; gv = cv2.Sobel(hp, cv2.CV_32F, 0, 1, ksize=3) / 8
+                det = np.dstack([gu, gv]).astype('f2')
+                if max(im.size) > 16000: det = cv2.resize(det.astype(np.float32), (im.size[0] // 2, im.size[1] // 2), interpolation=cv2.INTER_AREA).astype('f2')
+                dt = s.ctx.texture((det.shape[1], det.shape[0]), 2, det.tobytes(), dtype='f2'); dt.build_mipmaps()
+                dt.filter = (moderngl.LINEAR_MIPMAP_LINEAR, moderngl.LINEAR); dt.anisotropy = 16.0; s.det[z] = dt
             if max(im.size) > 16000: im = im.resize((im.size[0] // 2, im.size[1] // 2), Image.LANCZOS)
             t = s.ctx.texture(im.size, 3, im.tobytes()); t.build_mipmaps()
             t.filter = (moderngl.LINEAR_MIPMAP_LINEAR, moderngl.LINEAR); t.anisotropy = 16.0
@@ -69,6 +84,10 @@ class Scene:
         for k, z in enumerate((18, 17, 16)):
             s.tex[z].use(k); s.prog[f'tex{z}'].value = k
             s.prog[f'ext{z}'].value = tuple(float(a) for a in s.ext[z])
+        s.prog['bump'].value = BUMP if HD else 0.0
+        for k, z in ((3, 18), (4, 17)):
+            if HD: s.det[z].use(k)
+            s.prog[f'det{z}'].value = k
         sam = 2
         s.fbo = s.ctx.framebuffer([s.ctx.renderbuffer((W, H), 4, samples=sam)], s.ctx.depth_renderbuffer((W, H), samples=sam))
         s.fbo2 = s.ctx.framebuffer([s.ctx.renderbuffer((W, H), 4)], s.ctx.depth_texture((W, H)))
@@ -147,13 +166,20 @@ in vec3 wp; in vec3 wn; in vec2 vt; in float vs; in float va; out vec4 o;
 vec3 smp(sampler2D t, vec4 e, float zf, out float ok){
   vec2 q=vt*zf; vec2 uv=(q-e.xy)/e.zw; ok=step(0.0,uv.x)*step(uv.x,1.0)*step(0.0,uv.y)*step(uv.y,1.0);
   return texture(t,uv,-0.7).rgb; }
+uniform sampler2D det18; uniform sampler2D det17; uniform float bump;
+vec2 smpd(sampler2D t, vec4 e, float zf, out float ok){
+  vec2 q=vt*zf; vec2 uv=(q-e.xy)/e.zw; ok=step(0.0,uv.x)*step(uv.x,1.0)*step(0.0,uv.y)*step(uv.y,1.0);
+  return texture(t,uv).rg; }
 vec3 ramp(float s){ // slope 0..40 deg: green-yellow-orange-red
   vec3 a=vec3(0.10,0.60,0.30), b=vec3(0.99,0.88,0.40), c=vec3(0.96,0.43,0.26), d=vec3(0.65,0.0,0.15);
   float t=clamp(s/40.0,0.0,1.0)*3.0; return t<1.0?mix(a,b,t):(t<2.0?mix(b,c,t-1.0):mix(c,d,t-2.0)); }
 void main(){
   float k18,k17,k16; vec3 c18=smp(tex18,ext18,4.0,k18); vec3 c17=smp(tex17,ext17,2.0,k17); vec3 c16=smp(tex16,ext16,1.0,k16);
   vec3 col=mix(mix(c16,c17,k17),c18,k18);
-  vec3 n=normalize(wn); float dif=max(dot(n,normalize(sun)),0.0);
+  vec3 n=normalize(wn);
+  if(bump>0.0){ float j18,j17; vec2 g18=smpd(det18,ext18,4.0,j18); vec2 g17=smpd(det17,ext17,2.0,j17);
+    vec2 g=mix(g17*j17,g18,j18); float fade=1.0-smoothstep(4000.0,9000.0,length(wp-eye));
+    n=normalize(n+vec3(-g.x,g.y,0.0)*bump*7.0*fade); } float dif=max(dot(n,normalize(sun)),0.0);
   float shade=(0.55+0.62*dif)/(0.55+0.62*max(sun.z,0.3)); col*=mix(1.0,shade,0.9);
   if(slope_mix>0.0){ float m=slope_mix*smoothstep(6.0,14.0,vs)*0.5*(1.0-smoothstep(1300.0,2200.0,length(wp.xy-focus))); col=mix(col,ramp(vs)*(0.75+0.35*dif),m); }
   if(drain_mix>0.0){ float m=drain_mix*smoothstep(0.9,1.4,va)*(1.0-smoothstep(1500.0,2500.0,length(wp.xy-focus))); col=mix(col,vec3(0.2,0.78,1.0),m*0.95); }
