@@ -15,7 +15,7 @@ def hexc(c): return tuple(int(x) for x in c)
 def glow_tracks(img, items, scale=1.0):
     """img float32 HxWx3 0..1. Core lines at full res; bloom halos at quarter res (same look, 16x cheaper)."""
     H, W = img.shape[:2]; q = 4
-    core = np.zeros((H, W, 3), np.float32); halo = np.zeros((H // q, W // q, 3), np.float32); occl = np.zeros((H, W, 3), np.float32)
+    core = np.zeros((H, W, 3), np.float32); shad = np.zeros((H, W), np.float32); halo = np.zeros((H // q, W // q, 3), np.float32); occl = np.zeros((H, W, 3), np.float32)
     for it in items:
         xy = np.asarray(it['xy'], np.float32); vis = it['vis']; c = np.array(it['col'], np.float32) / 255; w = it['w'] * scale; g = it.get('glow', 1.0)
         segs = []; cur = []
@@ -26,6 +26,7 @@ def glow_tracks(img, items, scale=1.0):
         for sgm in segs:
             if len(sgm) < 2: continue
             a = np.array(sgm); p = (a * 8).astype(np.int32).reshape(-1, 1, 2)
+            if it.get('outline', 0): cv2.polylines(shad, [p], False, float(it['outline']), max(1, int(w + 4 * scale)), cv2.LINE_AA, shift=3)
             cv2.polylines(core, [p], False, c.tolist(), max(1, int(w)), cv2.LINE_AA, shift=3)
             ph = (a / q * 8).astype(np.int32).reshape(-1, 1, 2)
             cv2.polylines(halo, [ph], False, (c * g).tolist(), max(1, int(w * 3 / q)), cv2.LINE_AA, shift=3)
@@ -40,7 +41,7 @@ def glow_tracks(img, items, scale=1.0):
                     cv2.circle(core, (int(xy[j][0]), int(xy[j][1])), max(1, int(r * a_)), (np.minimum(1, c * 0.4 + 0.75) * a_).tolist(), -1, cv2.LINE_AA)
     L = sum(cv2.GaussianBlur(halo, (0, 0), s_ / q) * k for s_, k in ((4 * scale, 0.45), (14 * scale, 0.3), (38 * scale, 0.2)))
     L = cv2.resize(L, (W, H), interpolation=cv2.INTER_LINEAR)
-    cm = core.max(2, keepdims=True); out = img * (1 - 0.3 * np.clip(L.max(2, keepdims=True) * 2, 0, 1))
+    cm = core.max(2, keepdims=True); img = img * (1 - 0.75 * np.clip(cv2.GaussianBlur(shad, (0, 0), 1.2 * scale), 0, 1)[..., None]); out = img * (1 - 0.3 * np.clip(L.max(2, keepdims=True) * 2, 0, 1))
     out = out * (1 - np.clip(cm * 1.2, 0, 1)) + core + L + occl * 0.6
     m = np.maximum(out.max(2, keepdims=True), 1.0); return np.clip(out / m ** 0.85, 0, 1).astype(np.float32)
 

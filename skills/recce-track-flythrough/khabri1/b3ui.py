@@ -58,7 +58,11 @@ def badge(src, white_bg, size=150):
     k = 4; n = size * k; im = Image.new('RGBA', (n, n), (0, 0, 0, 0)); d = ImageDraw.Draw(im); e = Image.open(src).convert('RGBA')
     if white_bg:   # crest on a white square -> white disc with gold ring
         d.ellipse((0, 0, n - 1, n - 1), fill=GOLD + (255,)); d.ellipse((4 * k, 4 * k, n - 4 * k, n - 4 * k), fill=(255, 255, 255, 255))
-        sc = (n - 18 * k) / max(e.size); e = e.resize((int(e.size[0] * sc), int(e.size[1] * sc)), Image.LANCZOS)
+        a = np.asarray(e).copy(); wht = (a[..., :3].min(2) > 235)
+        from scipy.ndimage import label as _lab
+        lb, _ = _lab(wht); edge = set(np.unique(np.r_[lb[0], lb[-1], lb[:, 0], lb[:, -1]])) - {0}
+        a[np.isin(lb, list(edge)), 3] = 0; e = Image.fromarray(a)
+        sc = (n - 22 * k) / max(e.size); e = e.resize((int(e.size[0] * sc), int(e.size[1] * sc)), Image.LANCZOS)
         im.alpha_composite(e, ((n - e.size[0]) // 2, (n - e.size[1]) // 2 + 2 * k))
     else:          # emblem already a disc
         d.ellipse((0, 0, n - 1, n - 1), fill=GOLD + (255,))
@@ -179,8 +183,12 @@ def profile_strip(base, s_m, z_m, g_abs, frac, col, o=1.0, w=700, h=150, title=N
         g = g_abs[i]; c = BLUE if g <= 10 else (AMBER if g <= 100 / 7 else RED)
         d.polygon([(X[i], gy0 + gh), (X[i], Y[i]), (X[i + 1], Y[i + 1]), (X[i + 1], gy0 + gh)], fill=c + (220,))
     d.line(list(zip(X, Y)), fill=WHITE, width=max(1, q(2)))
-    for km in range(0, int(L // 500) + 1):
-        xx = gx0 + km * 500 / L * gw; d.text((xx, gy0 + gh + q(4)), f'{km * 0.5:.1f}', font=F(13), fill=GREY, anchor='ma')
+    stp = 100 if L <= 1000 else (200 if L <= 2000 else 250)
+    for k_ in range(0, int(L // stp) + 1):
+        xx = gx0 + k_ * stp / L * gw; d.line((xx, gy0 + gh, xx, gy0 + gh + q(4)), fill=GREY, width=1)
+        if k_ * stp <= L - stp * 0.6: d.text((xx, gy0 + gh + q(5)), f'{k_ * stp / 1000:.1f}', font=F(13), fill=GREY, anchor='ma')
+    d.text((gx0 + gw, gy0 + gh + q(5)), f'{L / 1000:.2f} km', font=F(13, 'b'), fill=WHITE, anchor='ra')
+    d.text((gx0 + gw - q(4), Y[-1] - q(6)), 'POST', font=F(13, 'b'), fill=GOLD, anchor='rb')
     xc = gx0 + frac * gw; d.line((xc, gy0, xc, gy0 + gh), fill=GOLD, width=max(1, q(2)))
     j = int(frac * (len(Y) - 1)); d.ellipse((xc - q(5), Y[j] - q(5), xc + q(5), Y[j] + q(5)), fill=GOLD)
     put(base, p, q(22), H - ph - q(40), o)

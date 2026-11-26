@@ -49,7 +49,10 @@ class Scene:
         xs = axis(float(ex0), float(ex1), float(cx0), float(cx1), 6.0, 30.0)
         ys = axis(float(ny0), float(ny1), float(cy0), float(cy1), 6.0, 30.0)
         GX, GY = np.meshgrid(xs, ys); LO, LA = ll(GX, GY)
-        Z = dem(LO, LA).astype(np.float64) * VE
+        Z = dem(LO, LA).astype(np.float64)
+        SMO = float(os.environ.get('MESH_SMOOTH', '0'))
+        if SMO > 0: Z = gaussian_filter(Z, SMO)
+        Z = Z * VE
         s.grid = (xs, ys, Z)
         gy, gx = np.gradient(Z, ys, xs)
         nrm = np.dstack([-gx, -gy, np.ones_like(Z)]); nrm /= np.linalg.norm(nrm, axis=2, keepdims=True)
