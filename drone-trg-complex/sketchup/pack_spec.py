@@ -40,6 +40,11 @@ for r in range(n - 1):
         faces += [[a, b, e], [a, e, d]]
 spec['terrain'] = {'name': 'Terrain_GR_Copernicus_GLO30', 'pos': [-HALF, -HALF, 0], 'size': 2 * HALF,
                    'mesh': {'k': 'mesh', 'v': verts, 'f': faces, 'm': 'Terrain_Imagery'}}
+from PIL import Image
+spec['portraits'] = {}
+for key, f in (('Portrait_Quaid', 'portrait_quaid.jpg'), ('Portrait_Iqbal', 'portrait_iqbal.jpg')):
+    im = Image.open(os.path.join(ROOT, 'assets', f)).convert('RGB').resize((236, 200), Image.LANCZOS)
+    spec['portraits'][key] = {'w': 236, 'h': 200, 'hex': im.tobytes().hex()}
 spec['site'] = {'lat': info['gr']['lat'], 'lon': info['gr']['lon'], 'pad_level_m': info['pad_level_m']}
 txt = json.dumps(spec, separators=(',', ':'), ensure_ascii=True)
 assert '\\' not in txt
