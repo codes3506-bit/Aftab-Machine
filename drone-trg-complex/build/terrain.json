@@ -1,0 +1,67 @@
+{
+ "gr": {
+  "lat": 25.329894444444445,
+  "lon": 62.509166666666665,
+  "dms": "25\u00b019'47.62\"N 62\u00b030'33.00\"E"
+ },
+ "source": {
+  "dem": "Copernicus GLO-30 DSM (30 m)",
+  "imagery": "Esri World Imagery z17 / z14"
+ },
+ "grids": {
+  "near": {
+   "half": 1500,
+   "step": 20,
+   "n": 151
+  },
+  "far": {
+   "half": 8000,
+   "step": 100,
+   "n": 161
+  }
+ },
+ "elevation_at_gr_m": 23.8,
+ "pad_level_m": 23.4,
+ "site_slope_deg": {
+  "mean": 2.07,
+  "max": 3.33
+ },
+ "site_aspect": "E",
+ "earthwork_m3": {
+  "cut": 7526,
+  "fill": 5017
+ },
+ "relief_rings": {
+  "100 m": {
+   "min": 21.3,
+   "max": 27.0,
+   "relief": 5.7
+  },
+  "250 m": {
+   "min": 21.0,
+   "max": 27.7,
+   "relief": 6.7
+  },
+  "500 m": {
+   "min": 18.7,
+   "max": 27.7,
+   "relief": 9.0
+  },
+  "1000 m": {
+   "min": 16.9,
+   "max": 44.2,
+   "relief": 27.3
+  },
+  "1500 m": {
+   "min": 15.3,
+   "max": 47.6,
+   "relief": 32.3
+  }
+ },
+ "area_slope_pct_over_10deg_1km": 0.7,
+ "highest_point_1500m": {
+  "elev_m": 47.6,
+  "bearing_deg": 317,
+  "dist_m": 1203
+ }
+}

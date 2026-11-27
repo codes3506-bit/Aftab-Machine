@@ -1,0 +1,225 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Drone Trg Complex 44 Div</title>
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #000; }
+  canvas { display: block; width: 100%; height: 100%; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<script src="vendor/three.min.js"></script>
+<script src="vendor/BufferGeometryUtils.js"></script>
+<script src="vendor/OrbitControls.js"></script>
+<script>
+/* Drone Trg Complex - 44 Div : renderer for the shared design spec (build/spec.json).
+   Spec coordinates are ENU metres (x east, y north, z up); a root group rotated -90deg about X
+   turns them into three.js y-up space. Used for the video (window.R.frame) and for previews. */
+(async function () {
+const Q = new URLSearchParams(location.search);
+const BASE = Q.get('base') || '../build/';
+const canvas = document.getElementById('c');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, preserveDrawingBuffer: true });
+renderer.setPixelRatio(1);
+renderer.outputEncoding = THREE.sRGBEncoding;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.0;
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(50, 16 / 9, 0.08, 30000);
+const world = new THREE.Group(); world.rotation.x = -Math.PI / 2; scene.add(world);
+
+const [spec, meta] = await Promise.all([fetch(BASE + 'spec.json').then(r => r.json()), fetch(BASE + 'render_meta.json').then(r => r.json())]);
+const loadF32 = async n => new Float32Array(await (await fetch(BASE + n)).arrayBuffer());
+const [hNear, hFar] = await Promise.all([loadF32('terrain_near.f32'), loadF32('terrain_far.f32')]);
+const texLoader = new THREE.TextureLoader();
+const loadTex = u => new Promise(res => texLoader.load(u, t => { t.encoding = THREE.sRGBEncoding; t.anisotropy = 8; res(t); }));
+const [imgNear, imgFar] = await Promise.all([loadTex(BASE + 'img_near.jpg'), loadTex(BASE + 'img_far.jpg')]);
+
+/* ---------------- materials ---------------- */
+const EMISSIVE = { Screen_Glow: 0.5, Led_Blue: 2.2, Nav_Red: 3.0, Nav_Green: 3.0, Light_Panel: 1.6, Title_Letters: 0.3, Screen_Off: 0.42 };
+const mats = {};
+const screenTex = imgNear.clone(); screenTex.needsUpdate = true; screenTex.repeat.set(0.12, 0.07); screenTex.offset.set(0.47, 0.46);
+for (const [name, c] of Object.entries(spec.materials)) {
+  const col = new THREE.Color(c[0] / 255, c[1] / 255, c[2] / 255).convertSRGBToLinear();
+  const o = { color: col, roughness: 0.85, metalness: 0.0 };
+  if (/Metal|Aluminium|Carbon|Composite/.test(name)) { o.roughness = 0.42; o.metalness = name === 'Aluminium' ? 0.8 : 0.35; }
+  if (/Glass/.test(name)) { o.roughness = 0.06; o.metalness = 0.5; }
+  if (c[3] < 255) { o.transparent = true; o.opacity = c[3] / 255; o.depthWrite = false; }
+  if (EMISSIVE[name]) { o.emissive = col.clone(); o.emissiveIntensity = EMISSIVE[name]; }
+  if (name === 'Screen_Glow' || name === 'Screen_Off') { o.map = screenTex; o.emissiveMap = screenTex; o.color = new THREE.Color(0.35, 0.4, 0.5); o.emissive = new THREE.Color(0.75, 0.85, 1.0); o.roughness = 0.3; }
+  mats[name] = new THREE.MeshStandardMaterial(o);
+}
+
+/* ---------------- geometry from spec parts ---------------- */
+function area(p) { let a = 0; for (let i = 0; i < p.length; i++) { const q = p[(i + 1) % p.length]; a += p[i][0] * q[1] - q[0] * p[i][1]; } return a / 2; }
+function flipWinding(g) {
+  for (const key of ['position', 'normal', 'uv']) {
+    const at = g.attributes[key]; if (!at) continue;
+    const s = at.itemSize, arr = at.array;
+    for (let t = 0; t < arr.length; t += 3 * s) for (let k = 0; k < s; k++) { const a = arr[t + s + k]; arr[t + s + k] = arr[t + 2 * s + k]; arr[t + 2 * s + k] = a; }
+  }
+  g.computeVertexNormals();
+}
+function prismGeo(p) {
+  let pts = p.pts; if (area(pts) < 0) pts = pts.slice().reverse();
+  const shape = new THREE.Shape(pts.map(q => new THREE.Vector2(q[0], q[1])));
+  for (let h of p.holes) { if (area(h) > 0) h = h.slice().reverse(); shape.holes.push(new THREE.Path(h.map(q => new THREE.Vector2(q[0], q[1])))); }
+  const g = new THREE.ExtrudeGeometry(shape, { depth: p.h, bevelEnabled: false, curveSegments: 1 });
+  g.translate(0, 0, p.z);
+  if (p.ax === 'y') { g.applyMatrix4(new THREE.Matrix4().set(1, 0, 0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 0, 1)); flipWinding(g); }
+  else if (p.ax === 'x') { g.applyMatrix4(new THREE.Matrix4().set(0, 0, 1, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1)); }
+  return g;
+}
+function latheGeo(p) {
+  const prof = p.prof.map(q => new THREE.Vector2(q[1], q[0]));
+  if (prof[0].x > 0) prof.unshift(new THREE.Vector2(0, prof[0].y));
+  const last = prof[prof.length - 1]; if (last.x > 0) prof.push(new THREE.Vector2(0, last.y));
+  const g = new THREE.LatheGeometry(prof.reverse(), p.seg);
+  g.rotateX(Math.PI / 2); g.translate(p.c[0], p.c[1], p.c[2]);
+  return g.toNonIndexed();
+}
+function meshGeo(p) {
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(p.v.flat(), 3));
+  g.setIndex(p.f.flat()); g.computeVertexNormals();
+  return g.toNonIndexed();
+}
+function partGeo(p) { const g = p.k === 'prism' ? prismGeo(p) : p.k === 'lathe' ? latheGeo(p) : meshGeo(p); g.deleteAttribute('uv'); return g; }
+
+function buildParts(parts) {               // merged meshes, one per material
+  const by = {};
+  for (const p of parts) (by[p.m] = by[p.m] || []).push(partGeo(p));
+  const g = new THREE.Group();
+  for (const [m, list] of Object.entries(by)) {
+    const merged = THREE.BufferGeometryUtils.mergeBufferGeometries(list, false);
+    const mesh = new THREE.Mesh(merged, mats[m]);
+    mesh.castShadow = !mats[m].transparent && !/Light_Panel|Led|Nav/.test(m); mesh.receiveShadow = true;
+    g.add(mesh);
+  }
+  return g;
+}
+const defs = {};
+for (const [name, d] of Object.entries(spec.defs)) defs[name] = buildParts(d.parts);
+const anims = [], layers = {};
+function buildNode(n) {
+  const g = new THREE.Group(); g.name = n.name;
+  g.position.set(n.pos[0], n.pos[1], n.pos[2]); g.rotation.z = THREE.MathUtils.degToRad(n.rot || 0);
+  if (n.parts.length) g.add(buildParts(n.parts));
+  for (const i of n.insts) { const o = defs[i.d].clone(); o.position.set(i.pos[0], i.pos[1], i.pos[2]); o.rotation.z = THREE.MathUtils.degToRad(i.rot); g.add(o); }
+  for (const c of n.children) g.add(buildNode(c));
+  if (n.anim) anims.push({ obj: g, base: g.rotation.z, ...n.anim });
+  if (n.layer) (layers[n.layer] = layers[n.layer] || []).push(g);
+  return g;
+}
+world.add(buildNode(spec.root));
+
+/* rotor blur discs */
+const blurMat = new THREE.MeshBasicMaterial({ color: 0x15171a, transparent: true, opacity: 0.0, depthWrite: false, side: THREE.DoubleSide });
+for (const a of anims) {
+  const disc = new THREE.Mesh(new THREE.RingGeometry(0.8, 5.5, 64), blurMat);
+  disc.position.z = 9.5; a.obj.add(disc);
+}
+
+/* ---------------- terrain ---------------- */
+function terrain(h, info, tex, lower) {
+  const n = info.n, half = info.half, step = info.step;
+  const g = new THREE.PlaneGeometry(2 * half, 2 * half, n - 1, n - 1);   // rows top (north) -> bottom
+  const pos = g.attributes.position;
+  for (let i = 0; i < pos.count; i++) {
+    const col = i % n, row = Math.floor(i / n);           // row 0 of plane = +y (north)
+    pos.setZ(i, h[(n - 1 - row) * n + col] - (lower || 0));
+  }
+  g.computeVertexNormals();
+  const m = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.95, color: new THREE.Color(0.86, 0.82, 0.74) });
+  const mesh = new THREE.Mesh(g, m); mesh.receiveShadow = true;
+  return mesh;
+}
+world.add(terrain(hNear, meta.near, imgNear));
+world.add(terrain(hFar, meta.far, imgFar, 0.3));
+
+/* ---------------- sky, sun, fill ---------------- */
+{
+  const geo = new THREE.SphereGeometry(20000, 48, 24), cols = [];
+  const top = new THREE.Color(0x5d8fc4), mid = new THREE.Color(0xa9c6df), hor = new THREE.Color(0xe8dcc6);
+  const p = geo.attributes.position;
+  for (let i = 0; i < p.count; i++) { const t = Math.max(0, p.getY(i) / 20000); const c = t < 0.12 ? hor.clone().lerp(mid, t / 0.12) : mid.clone().lerp(top, Math.min(1, (t - 0.12) / 0.6)); cols.push(c.r, c.g, c.b); }
+  geo.setAttribute('color', new THREE.Float32BufferAttribute(cols, 3));
+  scene.add(new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ vertexColors: true, side: THREE.BackSide, fog: false, depthWrite: false })));
+}
+scene.fog = new THREE.Fog(0xdfd6c4, 2500, 16000);
+const hemi = new THREE.HemisphereLight(0xcfe0f2, 0xa58d68, 0.75); scene.add(hemi);
+const sun = new THREE.DirectionalLight(0xfff0d8, 2.1);
+const az = THREE.MathUtils.degToRad(meta.sun.azimuth), el = THREE.MathUtils.degToRad(meta.sun.elevation);
+const sunDir = new THREE.Vector3(Math.sin(az) * Math.cos(el), Math.sin(el), -Math.cos(az) * Math.cos(el));   // three space: x east, y up, -z north
+sun.castShadow = true; sun.shadow.mapSize.set(4096, 4096);
+sun.shadow.bias = -0.0003; sun.shadow.normalBias = 0.04;
+scene.add(sun); scene.add(sun.target);
+function aimSun(center, radius) {
+  sun.position.copy(center).addScaledVector(sunDir, 400); sun.target.position.copy(center);
+  const c = sun.shadow.camera; c.left = c.bottom = -radius; c.right = c.top = radius; c.near = 1; c.far = 1200; c.updateProjectionMatrix();
+}
+aimSun(new THREE.Vector3(0, 0, 0), 90);
+// interior lights (spec ENU -> three: x, z, -y)
+const ilights = [];
+for (const [x, y] of [[-11, 4], [-11, -4], [-6, 0], [0.5, 4], [0.5, -5], [8, 3], [12, -3], [8, -8]]) {
+  const l = new THREE.PointLight(0xfff1dc, 0.9, 16, 1.5); l.position.set(x, 4.6, -y); scene.add(l); ilights.push(l);
+}
+
+/* dust swirl (take-off shot) */
+const dustN = 2400, dustGeo = new THREE.BufferGeometry(), dustSeed = [];
+const dpos = new Float32Array(dustN * 3);
+for (let i = 0; i < dustN; i++) dustSeed.push([Math.floor(Math.random() * 4), 4 + Math.random() * 12, Math.random() * Math.PI * 2, Math.random() * 6, 0.5 + Math.random()]);
+dustGeo.setAttribute('position', new THREE.BufferAttribute(dpos, 3));
+const dustMat = new THREE.PointsMaterial({ color: 0xd9c49e, size: 0.35, transparent: true, opacity: 0.0, depthWrite: false });
+const dust = new THREE.Points(dustGeo, dustMat); dust.frustumCulled = false; scene.add(dust);
+function updateDust(t, amount) {
+  dustMat.opacity = 0.55 * amount;
+  const towers = spec.meta.towers;
+  for (let i = 0; i < dustN; i++) {
+    const [ti, r, a0, h, sp] = dustSeed[i]; const tw = towers[ti];
+    const a = a0 + t * sp * 1.6 * tw.spin, rr = r + (t * sp * 1.2) % 8;
+    dpos[i * 3] = tw.c[0] + Math.cos(a) * rr; dpos[i * 3 + 1] = 0.2 + (h * ((t * 0.3 + sp) % 1)) * amount; dpos[i * 3 + 2] = -(tw.c[1] + Math.sin(a) * rr);
+  }
+  dustGeo.attributes.position.needsUpdate = true;
+}
+
+/* ---------------- state per frame ---------------- */
+const E = (x, y, z) => new THREE.Vector3(x, z, -y);       // ENU -> three
+let propAngle = 0, lastT = 0;
+function setState(t, o) {
+  const rpm = o.rpm === undefined ? 160 : o.rpm;
+  for (const a of anims) a.obj.rotation.z = a.base + a.spin * (o.propPhase !== undefined ? o.propPhase : t * rpm / 60 * Math.PI * 2);
+  blurMat.opacity = Math.min(0.22, rpm / 900);
+  const blink = (Math.floor(t * 1.4) % 2) === 0;
+  mats.Nav_Red.emissiveIntensity = blink ? 3.2 : 0.4; mats.Nav_Green.emissiveIntensity = blink ? 0.4 : 3.2;
+  for (const g of (layers.Roof || [])) g.visible = !o.noRoof;
+  updateDust(t, o.dust || 0);
+  for (const l of ilights) l.visible = !!o.interior;
+  camera.fov = o.fov || 50; camera.updateProjectionMatrix();
+  camera.position.copy(E(...o.eye)); camera.up.set(0, 1, 0); camera.lookAt(E(...o.look));
+  const tgt = E(...(o.shadowAt || o.look));
+  aimSun(tgt, o.shadowR || 90);
+}
+
+function resize(w, h) { renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix(); }
+resize(+(Q.get('w') || innerWidth), +(Q.get('h') || innerHeight));
+window.R = {
+  frame(t, o) { setState(t, o); renderer.render(scene, camera); return true; },
+  resize, ready: true,
+};
+if (!Q.get('headless')) {
+  const controls = new THREE.OrbitControls(camera, canvas);
+  camera.position.copy(E(60, 90, 45)); controls.target.copy(E(0, 0, 5)); controls.update();
+  addEventListener('resize', () => resize(innerWidth, innerHeight));
+  (function loop(ms) { const t = ms / 1000; for (const a of anims) a.obj.rotation.z = a.base + a.spin * t * 16.7; blurMat.opacity = 0.18;
+    controls.update(); renderer.render(scene, camera); requestAnimationFrame(loop); })(0);
+}
+})();
+</script>
+</body>
+</html>

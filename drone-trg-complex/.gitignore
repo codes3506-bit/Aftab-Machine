@@ -1,0 +1,3 @@
+build/*
+!build/terrain.json
+render/node_modules
