@@ -33,7 +33,8 @@ MATERIALS = {
     'Upholstery_Grey': [92, 96, 104, 255], 'Plant_Pot': [120, 80, 56, 255], 'Light_Panel': [255, 248, 228, 255],
     'Terrain': [196, 176, 138, 255], 'Frame_Gold': [196, 156, 72, 255], 'Portrait_Quaid': [200, 200, 200, 255],
     'Portrait_Iqbal': [200, 200, 200, 255], 'Sanitary_White': [242, 244, 246, 255], 'Tile_Wet': [196, 210, 214, 255],
-    'Mirror': [150, 170, 180, 255],
+    'Mirror': [150, 170, 180, 255], 'Laminate': [158, 163, 168, 255], 'Cabinet_Yellow': [226, 176, 30, 255],
+    'Fire_Red': [196, 30, 32, 255], 'Bin_Blue': [40, 92, 170, 255],
 }
 
 # ---------------------------------------------------------------- dimensions
@@ -431,6 +432,12 @@ def defs_all():
                     box(0, -0.85, 0, 0.85, 0.06, 0.72, 'Wood'), box(0, 0.85, 0, 0.85, 0.06, 0.72, 'Wood'),
                     box(0.15, 0.35, 0.77, 0.05, 0.5, 0.32, 'Carbon'), box(0.0, -0.4, 0.77, 0.3, 0.22, 0.03, 'Flag_White')]
     d['Office_Desk'] = od
+    # high-back executive chair, sitter faces +x
+    ec = node('Executive_Chair')
+    ec['parts'] += [cyl(0, 0, 0, 0.32, 0.06, 'Metal_Dark', 5), cyl(0, 0, 0.06, 0.05, 0.38, 'Aluminium', 10),
+                    box(0, 0, 0.44, 0.56, 0.56, 0.12, 'Leather_Black'), box(-0.3, 0, 0.5, 0.12, 0.58, 0.95, 'Leather_Black'),
+                    box(0.02, -0.32, 0.6, 0.45, 0.08, 0.2, 'Leather_Black'), box(0.02, 0.32, 0.6, 0.45, 0.08, 0.2, 'Leather_Black')]
+    d['Executive_Chair'] = ec
     return d
 
 # ---------------------------------------------------------------- interiors
@@ -531,59 +538,126 @@ def build_interiors(root):
         sp.append(cyl(7.0 + math.cos(a) * 1.0, -8.8 + math.sin(a) * 1.0, F + 0.2, 0.07, 0.8, 'Aluminium', 8))
     sp.append(lathe(7.0, -8.8, F + 1.12, [[0, 1.1], [0.6, 1.2], [1.3, 1.0], [1.7, 0.55], [1.85, 0]], 'Flag_White', 28))
     sp.append(box(7.95, -8.8, F + 1.6, 0.2, 1.2, 0.6, 'Glass_Dark'))
-    # ----- tower rooms
+    # ----- tower rooms (inner radius TR - T; door faces the hall at da = pi)
+    RI = TR - T
     for t in TOWERS:
         tr = add(it, node('Tower_Room_' + t['name']))
         cx, cy, phi = t['cx'], t['cy'], t['phi']
-        def at(dist, da):
-            return cx + math.cos(phi + da) * dist, cy + math.sin(phi + da) * dist
         deg = math.degrees(phi)
         rp = tr['parts']
-        if t['name'] == 'NE':      # Office (OIC Drone Trg): desk facing the door, chairs, cabinets
-            x, y = at(1.5, 0)
+        def at(dist, da):
+            return cx + math.cos(phi + da) * dist, cy + math.sin(phi + da) * dist
+        def wall_box(da, gap, w, d, h, z, m):
+            # box standing against the curved wall: width along the wall, depth towards the centre
+            x, y = at(RI - gap - d / 2, da)
+            return box(x, y, z, w, d, h, m, deg + math.degrees(da) + 90)
+        def free_box(dist, da, w, d, h, z, m, extra=0.0):
+            x, y = at(dist, da)
+            return box(x, y, z, w, d, h, m, deg + math.degrees(da) + 90 + extra)
+        rp.append(prism(circle_pts(cx, cy, RI + 0.01, 40), F, 0.012, 'Tile_Wet' if t['name'] == 'NW' else 'Floor_Tile'))
+        rp.append(lathe(cx, cy, HC - 0.06, [[0, 0.45], [0.04, 0.45], [0.06, 0]], 'Light_Panel', 24))
+        if t['name'] == 'NW':      # Washrooms: WC cubicles, urinals, vanity with basins, wuzu (ablution) area
+            rp.append(arc_wall(cx, cy, F, RI, RI - 0.015, 2.1, phi - 2.45, phi + 2.45, 'Tile_Wet', 40))
+            for k, da in enumerate((-0.55, 0.0, 0.55)):                       # three WC cubicles on the outer wall
+                rp.append(wall_box(da, 0.0, 0.42, 0.2, 0.75, F + 0.38, 'Sanitary_White'))       # cistern
+                rp.append(free_box(RI - 0.55, da, 0.4, 0.55, 0.4, F, 'Sanitary_White'))           # pan
+                rp.append(free_box(RI - 0.55, da, 0.42, 0.5, 0.03, F + 0.4, 'Composite_Grey'))   # seat
+                rp.append(free_box(RI - 1.38, da, 0.72, 0.04, 1.85, F + 0.15, 'Laminate'))        # cubicle door
+            for da in (-0.825, -0.275, 0.275, 0.825):                         # cubicle partitions (radial)
+                x, y = at(RI - 0.7, da)
+                rp.append(box(x, y, F + 0.15, 1.4, 0.04, 1.85, 'Laminate', deg + math.degrees(da)))
+            for da in (1.0, 1.15):                                            # hand dryer and towel dispenser
+                rp.append(wall_box(da, 0.0, 0.28, 0.2, 0.35, F + 1.2, 'Aluminium'))
+            rp.append(wall_box(-1.55, 0.0, 2.1, 0.55, 0.85, F, 'Laminate'))     # vanity counter
+            rp.append(wall_box(-1.55, 0.0, 2.15, 0.6, 0.05, F + 0.85, 'Sanitary_White'))
+            for dd in (-0.22, 0.0, 0.22):
+                rp.append(wall_box(-1.55 + dd, 0.18, 0.42, 0.34, 0.06, F + 0.9, 'Tile_Wet'))   # basin bowls
+                rp.append(wall_box(-1.55 + dd, 0.04, 0.05, 0.12, 0.22, F + 0.9, 'Aluminium'))  # taps
+            rp.append(wall_box(-1.55, 0.005, 1.9, 0.02, 0.9, F + 1.25, 'Mirror'))
+            rp.append(wall_box(1.55, 0.35, 1.1, 0.35, 0.38, F, 'Tile_Wet'))    # wuzu bench
+            rp.append(wall_box(1.55, 0.0, 1.1, 0.12, 0.12, F + 0.75, 'Aluminium'))
+            for dd in (-0.16, 0.0, 0.16):
+                rp.append(wall_box(1.55 + dd, 0.1, 0.04, 0.12, 0.05, F + 0.7, 'Aluminium'))
+            rp.append(wall_box(1.55, 0.75, 1.1, 0.12, 0.02, F + 0.01, 'Metal_Dark'))          # floor drain channel
+            rp.append(wall_box(0.0, 0.0, 0.35, 0.08, 0.35, F + 2.55, 'Composite_Grey'))       # exhaust fan
+        elif t['name'] == 'NE':    # Office (OIC Drone Trg)
+            rp.append(prism(circle_pts(cx, cy, 2.3, 40), F + 0.012, 0.012, 'Curtain'))
+            x, y = at(1.3, 0)
             tr['insts'].append(inst('Office_Desk', 'OIC_Desk', x, y, F, deg + 180))
-            x, y = at(2.45, 0)
-            tr['insts'].append(inst('Lecture_Seat', 'OIC_Chair', x, y, F, deg))
-            for k, da in enumerate((-0.35, 0.35)):
-                x, y = at(0.55, da)
+            x, y = at(2.2, 0)
+            tr['insts'].append(inst('Executive_Chair', 'OIC_Chair', x, y, F, deg + 180))
+            for k, da in enumerate((-0.4, 0.4)):
+                x, y = at(0.35, da)
                 tr['insts'].append(inst('Lecture_Seat', 'Visitor_Chair_' + str(k + 1), x, y, F, deg + 180))
-            for da in (-1.05, 1.05):
-                x, y = at(2.55, da)
-                rp.append(box(x, y, F, 0.9, 0.45, 1.9, 'Wood', deg + math.degrees(da) + 90))
-        elif t['name'] == 'NW':    # Washrooms: three WC cubicles on the outer wall, basin counter with mirror
-            for k, da in enumerate((-0.62, 0.0, 0.62)):
-                x, y = at(2.35, da)
-                a = deg + math.degrees(da)
-                rp.append(box(x, y, F, 0.45, 0.38, 0.42, 'Sanitary_White', a))
-                rp.append(box(*at(2.75, da), F + 0.42, 0.2, 0.45, 0.45, 'Sanitary_White', a))
-            for da in (-0.31, 0.31, -0.93, 0.93):
-                x, y = at(2.3, da)
-                rp.append(box(x, y, F, 1.3, 0.05, 2.0, 'Tile_Wet', deg + math.degrees(da)))
-            x, y = at(1.1, 1.4)
-            rp.append(box(x, y, F, 1.8, 0.55, 0.85, 'Tile_Wet', deg + 80 + 90))
-            rp.append(box(x, y, F + 0.85, 1.6, 0.4, 0.06, 'Sanitary_White', deg + 80 + 90))
-            mx, my = at(1.35, 1.4)
-            rp.append(box(mx, my, F + 1.2, 1.6, 0.03, 0.9, 'Mirror', deg + 80 + 90))
-            rp.append(cyl(*at(1.1, 0.0), F, 0.6, 0.008, 'Tile_Wet', 24))
-        elif t['name'] == 'SE':    # Drone & Equipment Store: shelving with drone cases
-            for da in (-0.75, 0.0, 0.75):
-                x, y = at(2.5, da)
-                a = deg + math.degrees(da) + 90
-                rp.append(box(x, y, F, 1.3, 0.5, 2.2, 'Aluminium', a))
+            rp.append(wall_box(-1.45, 0.05, 2.0, 0.8, 0.42, F, 'Leather_Black'))              # sofa
+            rp.append(wall_box(-1.45, 0.05, 2.0, 0.2, 0.45, F + 0.42, 'Leather_Black'))
+            rp.append(free_box(1.85, -1.45, 1.0, 0.55, 0.42, F, 'Wood'))                      # coffee table
+            rp.append(wall_box(1.45, 0.0, 1.0, 0.4, 2.0, F, 'Wood'))                          # bookcase
+            for lv in range(4):
+                rp.append(wall_box(1.45, 0.05, 0.85, 0.25, 0.28, F + 0.25 + lv * 0.45, 'Curtain' if lv % 2 else 'Seat_Fabric'))
+            x, y = at(2.6, 0.85)
+            rp += [cyl(x, y, F, 0.18, 0.05, 'Metal_Dark', 12), cyl(x, y, F, 0.02, 2.1, 'Aluminium', 8)]
+            rp.append(box(x + 0.25 * math.cos(phi + 0.85 + PI / 2), y + 0.25 * math.sin(phi + 0.85 + PI / 2), F + 1.45, 0.5, 0.01, 0.5, 'Flag_Green', deg + math.degrees(0.85) + 90))
+            rp.append(wall_box(-0.55, 0.0, 0.9, 0.03, 0.65, F + 1.6, 'Frame_Gold'))           # framed map of the area
+            rp.append(wall_box(-0.55, 0.02, 0.8, 0.02, 0.55, F + 1.65, 'Sand_Field'))
+            rp.append(wall_box(0.0, 0.0, 0.36, 0.04, 0.36, F + 2.45, 'Flag_White'))           # wall clock
+            rp.append(wall_box(0.55, 0.0, 0.95, 0.25, 0.3, F + 2.45, 'Sanitary_White'))       # split AC unit
+        elif t['name'] == 'SE':    # Drone & Equipment Store
+            for da in (-0.85, 0.0, 0.85):
+                rp.append(wall_box(da, 0.0, 1.3, 0.55, 0.04, F, 'Aluminium'))
+                for post in (-0.62, 0.62):
+                    rp.append(wall_box(da + post / (RI - 0.3), 0.0, 0.05, 0.55, 2.2, F, 'Aluminium'))
                 for lv in range(4):
-                    rp.append(box(x, y, F + 0.15 + lv * 0.52, 1.2, 0.42, 0.3, 'Carbon' if (lv + int(da * 4)) % 2 else 'Gate_Orange', a))
-            x, y = at(0.9, 0.0)
-            tr['insts'].append(inst('Display_Quad', 'Store_Quad', x, y, F, deg))
-        else:                      # SW Battery Charging & Maintenance Room: charging racks and work bench
-            for da in (-0.7, 0, 0.7):
-                x, y = at(2.5, da)
-                a = deg + math.degrees(da) + 90
-                rp.append(box(x, y, F, 1.1, 0.45, 2.0, 'Aluminium', a))
+                    rp.append(wall_box(da, 0.0, 1.3, 0.55, 0.03, F + 0.12 + lv * 0.55, 'Aluminium'))
+                    for b in (-0.4, 0.0, 0.4):
+                        rp.append(wall_box(da + b / (RI - 0.3), 0.05, 0.34, 0.42, 0.26, F + 0.15 + lv * 0.55, 'Bin_Blue' if (lv + int(b * 10)) % 2 == 0 else 'Gate_Orange'))
+            for k in range(3):                                                # drone transport cases
+                rp.append(wall_box(1.65, 0.05, 1.0, 0.6, 0.38, F + k * 0.38, 'Carbon'))
+                rp.append(wall_box(1.65, 0.04, 0.12, 0.04, 0.08, F + k * 0.38 + 0.15, 'Gate_Orange'))
+            for k, da in enumerate((-0.85, 0.0, 0.85)):                        # training drones on the top shelves
+                x, y = at(RI - 0.32, da)
+                tr['insts'].append(inst('Training_Quad', 'Shelf_Quad_' + str(k + 1), x, y, F + 1.82, 15 + 30 * k))
+            x, y = at(1.6, -0.9)                                              # fixed-wing UAV in an open case
+            rp += [box(x, y, F, 1.7, 0.7, 0.3, 'Carbon', deg + 30), box(x, y, F + 0.3, 1.3, 0.12, 0.1, 'Composite_Grey', deg + 30),
+                   box(x, y, F + 0.42, 0.25, 1.4, 0.03, 'Composite_Grey', deg + 30)]
+            rp.append(wall_box(-1.65, 0.0, 1.3, 0.03, 1.0, F + 1.2, 'Wood'))                  # pegboard with spare props
+            for k in range(6):
+                rp.append(wall_box(-1.65 + (k - 2.5) * 0.065, 0.03, 0.06, 0.02, 0.85, F + 1.27, 'Carbon'))
+            rp.append(wall_box(-1.65, 0.0, 0.8, 0.5, 1.0, F, 'Fire_Red'))                     # tool cabinet (under the pegboard)
+            rp.append(free_box(0.95, 0.0, 1.7, 0.6, 1.0, F, 'Wood'))                          # issue counter
+            rp.append(free_box(0.95, 0.0, 1.8, 0.7, 0.04, F + 1.0, 'Laminate'))
+            x, y = at(0.95, 0.3)
+            tr['insts'].append(inst('Training_Quad', 'Store_Quad', x, y, F + 1.04, 20))
+        else:                      # SW Battery Charging & Maintenance Room
+            for da in (-0.7, 0.0, 0.7):                                       # fire-safe charging cabinets
+                rp.append(wall_box(da, 0.0, 1.0, 0.55, 1.9, F, 'Cabinet_Yellow'))
                 for lv in range(3):
-                    rp.append(box(x, y, F + 0.45 + lv * 0.55, 1.12, 0.47, 0.04, 'Nav_Green', a))
+                    rp.append(wall_box(da, 0.55, 0.8, 0.02, 0.05, F + 0.45 + lv * 0.55, 'Nav_Green'))
+            for da in (-0.7, 0.0, 0.7):                                       # LiPo packs charging on cabinet tops
+                for b in (-0.25, 0.0, 0.25):
+                    rp.append(wall_box(da + b / (RI - 0.3), 0.12, 0.18, 0.28, 0.1, F + 1.9, 'Carbon'))
+                    rp.append(wall_box(da + b / (RI - 0.3), 0.1, 0.06, 0.02, 0.02, F + 2.0, 'Nav_Green'))
+            rp.append(wall_box(1.45, 0.0, 1.2, 0.45, 1.6, F, 'Aluminium'))                    # battery rack
+            for lv in range(3):
+                for b in (-0.35, 0.0, 0.35):
+                    rp.append(wall_box(1.45 + b / (RI - 0.3), 0.08, 0.28, 0.2, 0.14, F + 0.2 + lv * 0.5, 'Carbon'))
+            x, y = at(RI - 0.35, 1.82)
+            rp.append(box(x, y, F, 0.95, 0.3, 0.5, 'Metal_Dark', deg + math.degrees(1.82) + 90))
+            for dd in (-0.3, 0.0, 0.3):                                       # sand buckets
+                xx, yy = at(RI - 0.35, 1.82 + dd / (RI - 0.35))
+                rp.append(cyl(xx, yy, F + 0.5, 0.13, 0.28, 'Fire_Red', 14))
+            x, y = at(RI - 0.15, -1.85)
+            rp += [cyl(x, y, F + 0.15, 0.09, 0.55, 'Fire_Red', 14), cyl(x, y, F + 0.7, 0.03, 0.1, 'Carbon', 8)]   # extinguisher
+            rp.append(wall_box(0.0, 0.0, 0.6, 0.06, 0.4, F + 2.35, 'Aluminium'))              # ventilation louver
+            for k in range(4):
+                rp.append(wall_box(0.0, 0.05, 0.55, 0.02, 0.03, F + 2.42 + k * 0.08, 'Metal_Dark'))
+            rp.append(wall_box(-1.45, 0.0, 1.6, 0.7, 0.9, F, 'Wood'))                         # workbench
+            rp.append(wall_box(-1.45, 0.0, 1.4, 0.03, 0.8, F + 1.2, 'Laminate'))              # tool board
+            for k in range(5):
+                rp.append(wall_box(-1.45 + (k - 2) * 0.09, 0.03, 0.04, 0.03, 0.3, F + 1.4, 'Metal_Dark'))
             x, y = at(1.0, 0.0)
-            rp.append(box(x, y, F, 1.8, 0.75, 0.9, 'Wood', deg + 90))
-            tr['insts'].append(inst('Training_Quad', 'Maint_Quad', x, y, F + 0.9, 30))
+            rp += [cyl(x, y, F, 0.3, 0.05, 'Metal_Dark', 16), cyl(x, y, F + 0.05, 0.04, 0.85, 'Aluminium', 8)]   # repair stand
+            tr['insts'].append(inst('Training_Quad', 'Repair_Quad', x, y, F + 0.9, 30))
 
 # ---------------------------------------------------------------- site
 def build_site(root, height_fn):
