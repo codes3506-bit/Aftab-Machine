@@ -263,28 +263,85 @@ def build_towers(root):
                            anim={'spin': t['spin'], 'rpm': 160}))
         prop['insts'].append(inst('Propeller_2B', 'Prop_' + t['name'], 0, 0, 0, 0))
 
+def tube(pts, r, m):
+    """Square-section rib along a 3D polyline (glass-dome frame members)."""
+    verts, faces = [], []
+    n = len(pts)
+    for i in range(n):
+        a = pts[max(i - 1, 0)]
+        b = pts[min(i + 1, n - 1)]
+        tx, ty, tz = b[0] - a[0], b[1] - a[1], b[2] - a[2]
+        L = math.sqrt(tx * tx + ty * ty + tz * tz) or 1.0
+        tx, ty, tz = tx / L, ty / L, tz / L
+        ux, uy, uz = (0.0, 0.0, 1.0) if abs(tz) < 0.9 else (1.0, 0.0, 0.0)
+        # side = t x up, nrm = side x t
+        sx, sy, sz = ty * uz - tz * uy, tz * ux - tx * uz, tx * uy - ty * ux
+        sl = math.sqrt(sx * sx + sy * sy + sz * sz) or 1.0
+        sx, sy, sz = sx / sl, sy / sl, sz / sl
+        nx, ny, nz = sy * tz - sz * ty, sz * tx - sx * tz, sx * ty - sy * tx
+        x, y, z = pts[i]
+        for cu, cv in [(-1, -1), (1, -1), (1, 1), (-1, 1)]:
+            verts.append([round(x + (sx * cu + nx * cv) * r, 4), round(y + (sy * cu + ny * cv) * r, 4), round(z + (sz * cu + nz * cv) * r, 4)])
+    for i in range(n - 1):
+        for k in range(4):
+            a0, a1 = 4 * i + k, 4 * i + (k + 1) % 4
+            b0, b1 = a0 + 4, a1 + 4
+            faces += [[a0, a1, b1], [a0, b1, b0]]
+    return {'k': 'mesh', 'v': verts, 'f': faces, 'm': m}
+
+DOME_R, DOME_H, DOME_Z = 4.6, 4.3, HR + 0.75     # glass dome on a low composite drum
+
+def dome_prof(k):
+    """Dome profile point at parameter k (0 = springing, 1 = crown): returns (dz, r)."""
+    a = k * PI / 2
+    return DOME_H * math.sin(a), DOME_R * math.cos(a)
+
 def build_drone_core(root):
-    """Flight-controller hub on the roof and four carbon arms out to the rotor towers."""
+    """Flight-controller hub on the roof: a steel-framed glass dome on a composite drum, and four carbon arms out to the rotor towers."""
     g = add(root, node('Drone_Core'))
     p = g['parts']
-    p.append(lathe(0, 0, HR, [[0, 4.2], [0.9, 4.2], [1.15, 3.9], [1.8, 3.25], [2.3, 2.3], [2.6, 1.2], [2.72, 0]], 'Composite_Grey', 40))
-    p.append(ring(0, 0, HR + 0.55, 4.3, 4.18, 0.14, 'Led_Blue', 64))
-    p.append(cyl(0, -1.6, HR + 2.3, 0.07, 1.8, 'Aluminium', 10))
-    p.append(lathe(0, -1.6, HR + 4.1, [[0, 0.32], [0.12, 0.32], [0.2, 0.2], [0.24, 0]], 'Flag_White', 16))
-    for x in (-1.1, 1.1):
-        p.append(cyl(x, 0.9, HR + 2.0, 0.035, 2.4, 'Carbon', 8))
-    # gimbal camera at the front of the hub
-    p.append(lathe(0, 3.3, HR + 0.3, [[0, 0], [0.1, 0.45], [0.45, 0.62], [0.8, 0.45], [0.9, 0]], 'Carbon', 20))
-    p.append(cyl(0, 3.9, HR + 0.58, 0.16, 0.12, 'Glass_Dark', 16))
+    # drum (plinth) with LED band
+    p.append(cyl(0, 0, HR, DOME_R + 0.45, 0.75, 'Composite_Grey', 64))
+    p.append(ring(0, 0, HR + 0.5, DOME_R + 0.5, DOME_R + 0.38, 0.12, 'Led_Blue', 96))
+    p.append(ring(0, 0, DOME_Z - 0.02, DOME_R + 0.2, DOME_R - 0.25, 0.14, 'Metal_Dark', 96))
+    # glazing (one lathe shell, transparent)
+    prof = [[0, 0.02]] + [[round(dome_prof(i / 16.0)[0], 4), round(max(dome_prof(i / 16.0)[1], 0.02), 4)] for i in range(17)]
+    p.append(lathe(0, 0, DOME_Z, [[a, b * 0.995] for a, b in prof][1:], 'Glass', 64))
+    # steel frame: 16 meridian ribs, 4 latitude rings, crown oculus
+    for i in range(16):
+        ang = 2 * PI * i / 16
+        pts = []
+        for j in range(15):
+            dz, r = dome_prof(j / 15.0 * 0.93)
+            pts.append([math.cos(ang) * (r + 0.03), math.sin(ang) * (r + 0.03), DOME_Z + dz])
+        p.append(tube(pts, 0.055, 'Metal_Dark'))
+    for k in (0.22, 0.45, 0.66, 0.84):
+        dz, r = dome_prof(k)
+        pts = [[math.cos(2 * PI * i / 64) * (r + 0.03), math.sin(2 * PI * i / 64) * (r + 0.03), DOME_Z + dz] for i in range(65)]
+        p.append(tube(pts, 0.045, 'Metal_Dark'))
+    dz, r = dome_prof(0.93)
+    p.append(ring(0, 0, DOME_Z + dz - 0.05, r + 0.12, r - 0.1, 0.16, 'Metal_Dark', 48))
+    p.append(lathe(0, 0, DOME_Z + DOME_H - 0.12, [[0, r * 0.95], [0.3, r * 0.7], [0.42, 0.1], [0.44, 0]], 'Glass', 32))
+    # beacon finial
+    p.append(cyl(0, 0, DOME_Z + DOME_H + 0.2, 0.06, 0.9, 'Aluminium', 10))
+    p.append(lathe(0, 0, DOME_Z + DOME_H + 1.05, [[0, 0.14], [0.12, 0.16], [0.26, 0.1], [0.3, 0]], 'Nav_Red', 14))
+    # inside the glass: flight-controller core on a lit plinth, ring of status LEDs
+    p.append(cyl(0, 0, DOME_Z, 2.2, 0.35, 'Metal_Dark', 48))
+    p.append(lathe(0, 0, DOME_Z + 0.35, [[0, 1.5], [1.2, 1.5], [1.6, 1.2], [1.85, 0.5], [1.9, 0]], 'Composite_Grey', 40))
+    p.append(ring(0, 0, DOME_Z + 0.95, 1.56, 1.46, 0.1, 'Led_Blue', 48))
+    p.append(cyl(0, 0, DOME_Z + 0.36, 2.18, 0.02, 'Light_Panel', 48))
+    # gimbal camera at the front of the drum
+    p.append(lathe(0, DOME_R + 0.75, HR + 0.1, [[0, 0], [0.1, 0.4], [0.4, 0.55], [0.7, 0.4], [0.8, 0]], 'Carbon', 20))
+    p.append(cyl(0, DOME_R + 1.25, HR + 0.33, 0.15, 0.12, 'Glass_Dark', 16))
     for t in TOWERS:
         dist = math.hypot(t['cx'], t['cy'])
         ang = math.degrees(math.atan2(t['cy'], t['cx']))
-        r0, r1 = 3.6, dist - TR + 0.05
+        r0, r1 = DOME_R + 0.4, dist - TR + 0.05
         mid = (r0 + r1) / 2
         ux, uy = t['cx'] / dist, t['cy'] / dist
         p.append(box(ux * mid, uy * mid, HW + 0.1, r1 - r0, 1.3, 0.75, 'Carbon', ang))
         p.append(box(ux * mid, uy * mid, HW + 0.85, r1 - r0, 0.3, 0.06, 'Led_Blue', ang))
-        for rr in (6.5, 11.5):
+        for rr in (7.5, 12.0):
             p.append(cyl(ux * rr, uy * rr, HR, 0.28, HW + 0.1 - HR, 'Aluminium', 12))
 
 # ---------------------------------------------------------------- component definitions

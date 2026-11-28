@@ -11,15 +11,15 @@ const spec = process.argv[3] && process.argv[3] !== 'all' ? process.argv[3].spli
 // entries: "13" (whole clip) or "13:0/2" (part 0 of 2 -> clip_13_name.p0.mp4)
 const jobs = {}; for (const e of spec) { const [c, pr] = e.split(':'); (jobs[+c] = jobs[+c] || []).push(pr ? pr.split('/').map(Number) : null); }
 const only = Object.keys(jobs).map(Number);
-const scale = +(arg('--scale') || 1), stills = arg('--stills'), SS = +(arg('--ss') || 1.5);
+const scale = +(arg('--scale') || 1), stills = arg('--stills'), SS = +(arg('--ss') || 1.5), OVR = JSON.parse(arg('--ovr') || '{}');
 const W = Math.round(1920 * scale), H = Math.round(1080 * scale), FPS = 30;
 const PORT = 8800 + Math.floor(Math.random() * 150);
-const TYPES = { html: 'text/html', js: 'application/javascript', json: 'application/json', jpg: 'image/jpeg', png: 'image/png', TTF: 'font/ttf' };
+const TYPES = { html: 'text/html', js: 'application/javascript', json: 'application/json', jpg: 'image/jpeg', png: 'image/png', TTF: 'font/ttf', f32: 'application/octet-stream' };
 (async () => {
   const srv = http.createServer((q, r) => { const f = path.join(ROOT, decodeURIComponent(q.url.split('?')[0])); fs.readFile(f, (e, d) => { if (e) { r.writeHead(404); r.end(); } else { r.writeHead(200, { 'Content-Type': TYPES[f.split('.').pop()] || 'application/octet-stream' }); r.end(d); } }); }).listen(PORT);
   const b = await chromium.launch({ args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'] });
   const p = await b.newPage({ viewport: { width: 1920, height: 1080 }, deviceScaleFactor: stills ? scale : SS });
-  p.on('pageerror', e => console.error('pageerror', e.message));
+  p.on('pageerror', e => console.error('pageerror', e.message)); p.on('console', m => { if ((m.type() === 'error' || m.type() === 'warning') && !/GPU stall/.test(m.text())) console.error('console', m.text().slice(0, 300)); });
   await p.goto(`http://localhost:${PORT}/render/proposal.html?ss=${stills ? scale : SS}`);
   await p.waitForFunction('window.R && window.R.ready', null, { timeout: 240000 });
   let tStart = 0;
@@ -29,8 +29,8 @@ const TYPES = { html: 'text/html', js: 'application/javascript', json: 'applicat
       if (stills) {
         for (const k of stills.split(',').map(Number)) {
           const t = k * clip.dur;
-          await p.evaluate(([tt, s]) => window.R.frame(tt, s), [tStart + t, clip.fn(t)]);
-          await p.screenshot({ path: path.join(OUT, `still_${String(ci).padStart(2, '0')}_${clip.name}_${k}.jpg`), type: 'jpeg', quality: 88 });
+          await p.evaluate(([tt, s]) => window.R.frame(tt, s), [tStart + t, Object.assign(clip.fn(t), OVR)]);
+          await p.screenshot({ path: path.join(OUT, `still_${String(ci).padStart(2, '0')}_${clip.name}_${k}${arg('--tag') || ''}.jpg`), type: 'jpeg', quality: 88 });
         }
       } else for (const part of jobs[ci]) {
         const n = Math.round(clip.dur * FPS);
