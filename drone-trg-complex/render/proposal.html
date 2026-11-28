@@ -157,7 +157,7 @@ const T = {
   tile300: canvasTex(256, (g, s) => { const n = 4, ts = s / n; for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) { g.fillStyle = shadeHex('#d9e6ea', 0.96 + rnd() * 0.05); g.fillRect(i * ts, j * ts, ts, ts); } g.fillStyle = '#9fb0b5'; for (let i = 0; i <= n; i++) { g.fillRect(i * ts - 1, 0, 2, s); g.fillRect(0, i * ts - 1, s, 2); } }),
   concrete: canvasTex(512, (g, s) => { g.fillStyle = '#d7d5cf'; g.fillRect(0, 0, s, s); for (let i = 0; i < 40; i++) { g.globalAlpha = 0.06; g.fillStyle = rnd() < 0.5 ? '#9a978f' : '#ffffff'; g.beginPath(); g.arc(rnd() * s, rnd() * s, 20 + rnd() * 80, 0, 7); g.fill(); } g.globalAlpha = 1; speckle(g, s, 16000, ['#8f8c85', '#ffffff', '#b5b2ab'], 0.35); g.fillStyle = 'rgba(90,88,82,.35)'; g.fillRect(0, s / 2, s, 1.5); g.fillRect(s / 2, 0, 1.5, s); }),
   gravel: canvasTex(512, (g, s) => { g.fillStyle = '#efe3c8'; g.fillRect(0, 0, s, s); speckle(g, s, 30000, ['#b39a73', '#fff7e6', '#8d7a5c', '#d9c4a0'], 0.55); }),
-  lawn: canvasTex(512, (g, s) => { for (let i = 0; i < 8; i++) { g.fillStyle = i % 2 ? '#7fc463' : '#94d276'; g.fillRect(i * s / 8, 0, s / 8, s); } speckle(g, s, 26000, ['#4f9a3d', '#b8e59a', '#3e7f2e'], 0.5); }),
+  lawn: canvasTex(512, (g, s) => { for (let i = 0; i < 8; i++) { g.fillStyle = i % 2 ? '#a8b98a' : '#b4c494'; g.fillRect(i * s / 8, 0, s / 8, s); } speckle(g, s, 30000, ['#6f8452', '#d6dcb8', '#5b6e42', '#9a8a62'], 0.55); }),
   asphalt: canvasTex(512, (g, s) => { g.fillStyle = '#9a9a9c'; g.fillRect(0, 0, s, s); speckle(g, s, 30000, ['#5c5c5e', '#cfcfd1', '#77777a'], 0.6); }),
   carpet: canvasTex(256, (g, s) => { g.fillStyle = '#f0f0f0'; g.fillRect(0, 0, s, s); speckle(g, s, 14000, ['#c8c8c8', '#ffffff', '#a8a8a8'], 0.45); }),
   fabric: canvasTex(128, (g, s) => { g.fillStyle = '#f2f2f2'; g.fillRect(0, 0, s, s); for (let i = 0; i < s; i += 2) { g.fillStyle = 'rgba(0,0,0,.06)'; g.fillRect(i, 0, 1, s); g.fillRect(0, i, s, 1); } }),
@@ -450,7 +450,7 @@ const onT = (x, y) => terrainH(x, y);
     const m = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.2, 14, 10), SM(0x8a8d90, { metalness: 0.7, roughness: 0.4 })); m.rotation.x = Math.PI / 2; m.position.z = 7; g.add(m);
     const head = box(2.2, 0.3, 1.0, SM(0x333333)); head.position.set(0, 0, 14.2); g.add(head);
     for (let k = 0; k < 4; k++) { const l = box(0.45, 0.08, 0.4, mats.Light_Panel); l.position.set(-0.8 + k * 0.53, x > 0 === y > 0 ? -0.2 : -0.2, 14.0); g.add(l); }
-    const sp = new THREE.SpotLight(0xfff0d8, 0, 120, 0.75, 0.6, 1.2); sp.position.copy(E(x, y, 14)); sp.target.position.copy(E(x * 0.15, y * 0.15, 0)); scene.add(sp, sp.target); site.userData.flood.push(sp);
+    const sp = new THREE.SpotLight(0xfff0d8, 0, 110, 0.7, 0.7, 1.6); sp.position.copy(E(x, y, 14)); sp.target.position.copy(E(x * 0.15, y * 0.15, 0)); scene.add(sp, sp.target); site.userData.flood.push(sp);
     g.traverse(o => { if (o.isMesh) o.castShadow = true; }); }
   // spoil heaps (grow during earthwork, cleared at finishes)
   site.userData.spoil = [[32, 22, 6.5, 3.2], [36, -2, 5.5, 2.6], [-32, 26, 5.0, 2.4]].map(([x, y, r, h]) => { const c = new THREE.Mesh(new THREE.ConeGeometry(r, h, 32, 5), triplanar(new THREE.MeshStandardMaterial({ color: new THREE.Color(0.86, 0.76, 0.6).convertSRGBToLinear(), roughness: 1 }), T.gravel, 3)); c.rotation.x = Math.PI / 2; c.position.set(x, y, onT(x, y)); c.userData.h = h; c.castShadow = c.receiveShadow = true; site.add(c); return c; });
@@ -551,9 +551,9 @@ const nl = (l, base) => { l.userData.base = base; l.intensity = 0; scene.add(l);
   // uplights in front of the eight facade faces (aimed up the stone)
   for (let i = 0; i < 8; i++) { const [ax, ay] = hallPts[i], [bx, by] = hallPts[(i + 1) % 8], mx = (ax + bx) / 2, my = (ay + by) / 2, L = Math.hypot(mx, my), ox = mx / L, oy = my / L;
     for (const f of (Math.hypot(bx - ax, by - ay) > 20 ? [-0.3, 0.3] : [0])) { const px = mx + (bx - ax) * f + ox * 1.6, py = my + (by - ay) * f + oy * 1.6;
-      const s = nl(new THREE.SpotLight(warm, 0, 16, 0.62, 0.85, 1.6), 9.0); s.position.copy(E(px, py, 0.3)); s.target.position.copy(E(px - ox * 1.2, py - oy * 1.2, 7)); scene.add(s.target); } }
+      const s = nl(new THREE.SpotLight(warm, 0, 14, 0.62, 0.9, 1.8), 4.2); s.position.copy(E(px, py, 0.3)); s.target.position.copy(E(px - ox * 1.2, py - oy * 1.2, 7)); scene.add(s.target); } }
   for (const [cx, cy] of towersC) { const L = Math.hypot(cx, cy), ox = cx / L, oy = cy / L;
-    const s = nl(new THREE.SpotLight(0xffe2b8, 0, 18, 0.5, 0.8, 1.5), 12.0); s.position.copy(E(cx + ox * 5.6, cy + oy * 5.6, 0.3)); s.target.position.copy(E(cx, cy, 8.5)); scene.add(s.target); }
+    const s = nl(new THREE.SpotLight(0xffe2b8, 0, 16, 0.5, 0.85, 1.7), 5.0); s.position.copy(E(cx + ox * 5.6, cy + oy * 5.6, 0.3)); s.target.position.copy(E(cx, cy, 8.5)); scene.add(s.target); }
   nl(new THREE.PointLight(0xbfe6ff, 0, 16, 1.6), 5.5).position.copy(E(0, 0, 7.6));                 // dome interior glow
   nl(new THREE.PointLight(0xffe0b0, 0, 14, 1.5), 4.0).position.copy(E(0, 19.5, 3.4));               // entrance canopy
   const fs = nl(new THREE.SpotLight(0xffffff, 0, 30, 0.22, 0.6, 1.2), 14.0); fs.position.copy(E(4, 25, 0.4)); fs.target.position.copy(E(0.09, 31.5, 10)); scene.add(fs.target);
@@ -564,7 +564,7 @@ const nl = (l, base) => { l.userData.base = base; l.intensity = 0; scene.add(l);
   const pool = (x, y, r) => { const m = new THREE.Mesh(new THREE.PlaneGeometry(2 * r, 2 * r), poolMat); m.position.set(x, y, terrainH(x, y) + 0.06); world.add(m); };
   for (const [lx, ly, r] of [[-5.5, 19, 0], [5.5, 19, 180], [-5.5, 45, 0], [5.5, 45, 180], [-25, 3, 0], [24, 3, 180]]) {
     const hx = lx + Math.cos(r * Math.PI / 180) * 1.15, hy = ly + Math.sin(r * Math.PI / 180) * 1.15;
-    nl(new THREE.PointLight(0xffd59a, 0, 20, 1.7), 6.0).position.copy(E(hx, hy, 7.0)); pool(hx, hy, 7.5); }
+    nl(new THREE.PointLight(0xffd59a, 0, 20, 1.7), 3.5).position.copy(E(hx, hy, 7.0)); pool(hx, hy, 7.5); }
   // perimeter-wall lights every ~12 m (emissive heads + pools, no real lights)
   night.wallLamps = new THREE.Group(); extra.add(night.wallLamps);
   const [x0, y0, x1, y1] = [-55, -40, 55, 52];
@@ -617,11 +617,11 @@ function setEnv(t, env) {
   if (Math.abs(envK - lastEnvK) > 0.005) { for (const x of allMats) x.envMapIntensity = x.userData.env0 * envK; lastEnvK = envK; }
   const lightsK = env.lightsOn === undefined ? 1 - THREE.MathUtils.smoothstep(el, -2, 9) : env.lightsOn;
   for (const l of night.lights) { l.intensity = l.userData.base * lightsK; l.visible = lightsK > 0.004; }
-  night.poolMat.opacity = 0.85 * lightsK; night.wallLamps.visible = lightsK > 0.02;
+  night.poolMat.opacity = 0.55 * lightsK; night.wallLamps.visible = lightsK > 0.02;
   for (const [n, [c, k]] of Object.entries(GLASS_N)) { const m = mats[n]; m.emissive.set(c); m.emissiveIntensity = k * lightsK * (env.windows === undefined ? 1 : env.windows); if (finMat[n]) { finMat[n].emissive.set(c); finMat[n].emissiveIntensity = m.emissiveIntensity; } }
   for (const [n, k] of [['Light_Panel', 1.8 + 5 * lightsK], ['Led_Blue', 2.0 + 6 * lightsK], ['Title_Letters', 0.35 + 3.2 * lightsK]]) { mats[n].emissiveIntensity = k; if (finMat[n]) finMat[n].emissiveIntensity = k; }
   VEH.setNight(lightsK);
-  exposure.value = (env.exposure || 1.0) * (1 + 1.25 * nightK) * (1 + 0.25 * cloud * day);
+  exposure.value = (env.exposure || 1.0) * (1 + 0.9 * nightK) * (1 + 0.25 * cloud * day);
   bloom.strength = 0.18 + 0.85 * lightsK; bloom.threshold = THREE.MathUtils.lerp(3.5, 0.75, lightsK); bloom.radius = 0.55;
   // wet ground after rain
   const wet = env.wet || 0; for (const m of terrainMats) { m.roughness = 0.96 - 0.5 * wet; m.color.setRGB(0.9 - 0.35 * wet, 0.86 - 0.35 * wet, 0.78 - 0.33 * wet); }
@@ -765,7 +765,7 @@ function setState(t, o) {
   const env = Object.assign({ sun: o.sun || [meta.sun.azimuth, meta.sun.elevation], cloud: 0.18, hemi: o.tower ? 0.38 : 0.55 }, o.env || {});
   env.shadowAt = o.shadowAt || o.look; env.shadowR = o.shadowR || 90;
   setEnv(t, env);
-  if (sv) { const k = 1 - THREE.MathUtils.smoothstep(env.sun[1], -3, 6); for (const f of site.userData.flood) { f.intensity = 3.2 * k * (b && b.plant ? 1 : 0); f.visible = f.intensity > 0.01; } }
+  if (sv) { const k = 1 - THREE.MathUtils.smoothstep(env.sun[1], -3, 6); for (const f of site.userData.flood) { f.intensity = 0.7 * k * (b && b.plant ? 1 : 0); f.visible = f.intensity > 0.01; } }
   scene.updateMatrixWorld(); camera.updateMatrixWorld();
   aoCam.copy(camera); aoCam.far = o.interior ? 60 : 600; aoCam.near = o.interior ? 0.1 : 2.0; aoCam.updateProjectionMatrix();
   Object.assign(sao.params, o.interior ? { saoScale: 6, saoKernelRadius: 40, saoIntensity: 0.022, saoBias: 0.5 } : { saoScale: 60, saoKernelRadius: 24, saoIntensity: 0.010, saoBias: 1.0 }, o.aoP || {});

@@ -92,7 +92,7 @@ const CLIPS = [
                cap: { n: String(pi + 1), h: p[2], d: p[3], a: capA } }; } },
   { name: 'night_reveal', dur: 10.0, fn: t => {
       const u = easeIO(t / 10);
-      return { eye: path([[60, 58, 5.5], [24, 66, 9], [-26, 62, 13], [-54, 40, 16]], u), look: path([[4, 6, 6], [0, 4, 6.5], [-2, 2, 6.5], [-4, 0, 6]], u), fov: 42, shadowR: 90, shadowAt: [0, 0, 0],
+      return { eye: path([[34, 74, 5.5], [10, 72, 9], [-26, 64, 13], [-54, 40, 16]], u), look: path([[4, 6, 6], [0, 4, 6.5], [-2, 2, 6.5], [-4, 0, 6]], u), fov: 42, shadowR: 90, shadowAt: [0, 0, 0],
                env: { sun: [250, -32], moon: [215, 24], cloud: 0.12, skySpeed: 0.4, exposure: 1.05 }, rpm: 60,
                hdr: hdr('NIGHT VIEW', 'Under moonlight  ·  facade and site lighting', t) }; } },
   { name: 'scope_of_work', dur: 8.0, fn: t => {
