@@ -759,12 +759,13 @@ function setState(t, o) {
   if (o.dust) { for (let i = 0; i < dustN; i++) { const [x, y, h, s] = dseed[i]; dpos[i * 3] = x + Math.sin(t * s + h * 9) * 3; dpos[i * 3 + 1] = 0.2 + ((t * 0.4 * s + h) % 1) * 4; dpos[i * 3 + 2] = -(y + Math.cos(t * s + h * 7) * 3); } dustGeo.attributes.position.needsUpdate = true; }
   for (const l of ilights) l.visible = !!o.interior;
   for (const [k, l] of Object.entries(tlights)) l.visible = !!o.interior || o.tower === k;
-  camera.fov = o.fov || 50; camera.near = o.near || 0.08; camera.far = o.far || 90000; camera.updateProjectionMatrix();
+  camera.fov = o.fov || 50; camera.near = o.near || (o.interior ? 0.08 : 0.9); camera.far = o.far || 90000; camera.updateProjectionMatrix();
   camera.position.copy(E(...o.eye)); camera.up.set(0, 1, 0); camera.lookAt(E(...o.look));
   if (o.roll) camera.rotateZ(o.roll);
   const env = Object.assign({ sun: o.sun || [meta.sun.azimuth, meta.sun.elevation], cloud: 0.18, hemi: o.tower ? 0.38 : 0.55 }, o.env || {});
   env.shadowAt = o.shadowAt || o.look; env.shadowR = o.shadowR || 90;
   setEnv(t, env);
+  if (o.dbg) { if (o.dbg.noShadow) sun.castShadow = false; if (o.dbg.bias !== undefined) sun.shadow.bias = o.dbg.bias; if (o.dbg.nb !== undefined) sun.shadow.normalBias = o.dbg.nb; if (o.dbg.hide) for (const n of o.dbg.hide) { const x = world.getObjectByName(n); if (x) x.visible = false; } if (o.dbg.noSite) site.visible = false; if (o.dbg.padPlain) { const m = mats.Sand_Field; m.onBeforeCompile = () => {}; m.customProgramCacheKey = () => 'plain'; m.map = null; m.needsUpdate = true; } if (o.dbg.noFog) scene.fog = null; if (o.dbg.noTerrain) terrainMats.forEach(m => m.visible = false); }
   if (sv) { const k = 1 - THREE.MathUtils.smoothstep(env.sun[1], -3, 6); for (const f of site.userData.flood) { f.intensity = 0.7 * k * (b && b.plant ? 1 : 0); f.visible = f.intensity > 0.01; } }
   scene.updateMatrixWorld(); camera.updateMatrixWorld();
   aoCam.copy(camera); aoCam.far = o.interior ? 60 : 600; aoCam.near = o.interior ? 0.1 : 2.0; aoCam.updateProjectionMatrix();

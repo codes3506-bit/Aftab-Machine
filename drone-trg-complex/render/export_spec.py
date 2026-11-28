@@ -37,7 +37,7 @@ gf = info['grids']['far']
 far = np.load(os.path.join(B, 'dem_far.npy')).astype(np.float32) - info['pad_level_m']
 xf = np.arange(-gf['half'], gf['half'] + 0.1, gf['step'])
 XF, YF = np.meshgrid(xf, xf)
-far[(np.abs(XF) < g['half'] - 50) & (np.abs(YF) < g['half'] - 50)] -= 6.0      # tuck under the near tile
+far[(np.abs(XF) < g['half'] - 50) & (np.abs(YF) < g['half'] - 50)] -= 15.0      # tuck under the near tile
 far.tofile(os.path.join(B, 'terrain_far.f32'))
 
 # ---- sun position (NOAA approximation) for the GR, 27 Nov 2026 15:00 PKT (UTC+5) ----

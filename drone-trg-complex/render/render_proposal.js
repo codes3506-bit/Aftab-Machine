@@ -38,12 +38,12 @@ const TYPES = { html: 'text/html', js: 'application/javascript', json: 'applicat
         const file = path.join(OUT, `clip_${String(ci).padStart(2, '0')}_${clip.name}${part ? '.p' + part[0] : ''}.mp4`);
         for (let w = Math.max(0, f0 - 20); w < f0; w++) await p.evaluate(([tt, s]) => window.R.frame(tt, s), [tStart + w / FPS, clip.fn(w / FPS)]);
         const ff = spawn('ffmpeg', ['-y', '-loglevel', 'error', '-f', 'image2pipe', '-framerate', String(FPS), '-c:v', 'mjpeg', '-i', '-',
-          '-vf', 'scale=1920:1080:flags=lanczos', '-c:v', 'libx264', '-preset', 'medium', '-crf', '16', '-pix_fmt', 'yuv420p', file]);
+          '-vf', `scale=${Math.round(1920 * Math.min(SS, 2))}:${Math.round(1080 * Math.min(SS, 2))}:flags=lanczos`, '-c:v', 'libx264', '-preset', 'medium', '-crf', '14', '-pix_fmt', 'yuv420p', file]);
         const t0 = Date.now();
         for (let f = f0; f < f1; f++) {
           const t = f / FPS;
           await p.evaluate(([tt, s]) => window.R.frame(tt, s), [tStart + t, clip.fn(t)]);
-          const buf = await p.screenshot({ type: 'jpeg', quality: 94, timeout: 0 });
+          const buf = await p.screenshot({ type: 'jpeg', quality: 95, timeout: 0 });
           if (!ff.stdin.write(buf)) await new Promise(r => ff.stdin.once('drain', r));
           if (f % 30 === 0) console.log(clip.name, f, '/', n, ((Date.now() - t0) / (f - f0 + 1) / 1000).toFixed(2), 's/frame');
         }

@@ -23,7 +23,7 @@ h = np.maximum(h, 0.0) - info['pad_level_m']
 d = np.hypot(E, N)
 k = np.clip((d - 8000) / 12000, 0, 1); k = k * k * (3 - 2 * k)
 h = np.where(h > 0, h * (1 + 1.2 * k), h)
-h[(np.abs(E) < 7900) & (np.abs(N) < 7900)] -= 12.0       # tuck under the far tile
+h[(np.abs(E) < 7900) & (np.abs(N) < 7900)] -= 40.0       # tuck under the far tile
 h.astype(np.float32).tofile(os.path.join(B, 'terrain_horizon.f32'))
 # shaded relief texture (row 0 = north)
 gy, gx = np.gradient(h, STEP)
