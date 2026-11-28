@@ -7,7 +7,10 @@ const { CLIPS, XF } = require('./proposal_timeline');
 const ROOT = path.join(__dirname, '..');
 const OUT = process.argv[2]; fs.mkdirSync(OUT, { recursive: true });
 const arg = k => process.argv.includes(k) ? process.argv[process.argv.indexOf(k) + 1] : null;
-const only = process.argv[3] && process.argv[3] !== 'all' ? process.argv[3].split(',').map(Number) : CLIPS.map((_, i) => i);
+const spec = process.argv[3] && process.argv[3] !== 'all' ? process.argv[3].split(',') : CLIPS.map((_, i) => String(i));
+// entries: "13" (whole clip) or "13:0/2" (part 0 of 2 -> clip_13_name.p0.mp4)
+const jobs = {}; for (const e of spec) { const [c, pr] = e.split(':'); (jobs[+c] = jobs[+c] || []).push(pr ? pr.split('/').map(Number) : null); }
+const only = Object.keys(jobs).map(Number);
 const scale = +(arg('--scale') || 1), stills = arg('--stills'), SS = +(arg('--ss') || 1.5);
 const W = Math.round(1920 * scale), H = Math.round(1080 * scale), FPS = 30;
 const PORT = 8800 + Math.floor(Math.random() * 150);
@@ -29,18 +32,20 @@ const TYPES = { html: 'text/html', js: 'application/javascript', json: 'applicat
           await p.evaluate(([tt, s]) => window.R.frame(tt, s), [tStart + t, clip.fn(t)]);
           await p.screenshot({ path: path.join(OUT, `still_${String(ci).padStart(2, '0')}_${clip.name}_${k}.jpg`), type: 'jpeg', quality: 88 });
         }
-      } else {
+      } else for (const part of jobs[ci]) {
         const n = Math.round(clip.dur * FPS);
-        const file = path.join(OUT, `clip_${String(ci).padStart(2, '0')}_${clip.name}.mp4`);
+        const f0 = part ? Math.floor(n * part[0] / part[1]) : 0, f1 = part ? Math.floor(n * (part[0] + 1) / part[1]) : n;
+        const file = path.join(OUT, `clip_${String(ci).padStart(2, '0')}_${clip.name}${part ? '.p' + part[0] : ''}.mp4`);
+        for (let w = Math.max(0, f0 - 20); w < f0; w++) await p.evaluate(([tt, s]) => window.R.frame(tt, s), [tStart + w / FPS, clip.fn(w / FPS)]);
         const ff = spawn('ffmpeg', ['-y', '-loglevel', 'error', '-f', 'image2pipe', '-framerate', String(FPS), '-c:v', 'mjpeg', '-i', '-',
           '-vf', 'scale=1920:1080:flags=lanczos', '-c:v', 'libx264', '-preset', 'medium', '-crf', '16', '-pix_fmt', 'yuv420p', file]);
         const t0 = Date.now();
-        for (let f = 0; f < n; f++) {
+        for (let f = f0; f < f1; f++) {
           const t = f / FPS;
           await p.evaluate(([tt, s]) => window.R.frame(tt, s), [tStart + t, clip.fn(t)]);
           const buf = await p.screenshot({ type: 'jpeg', quality: 94, timeout: 0 });
           if (!ff.stdin.write(buf)) await new Promise(r => ff.stdin.once('drain', r));
-          if (f % 60 === 0) console.log(clip.name, f, '/', n, ((Date.now() - t0) / (f + 1) / 1000).toFixed(2), 's/frame');
+          if (f % 30 === 0) console.log(clip.name, f, '/', n, ((Date.now() - t0) / (f - f0 + 1) / 1000).toFixed(2), 's/frame');
         }
         ff.stdin.end(); await new Promise(r => ff.on('close', r));
         console.log('done', file, ((Date.now() - t0) / 1000).toFixed(0), 's');

@@ -3,7 +3,16 @@ import glob, os, subprocess
 HERE = os.path.dirname(os.path.abspath(__file__))
 V = os.path.join(HERE, '..', 'build', 'proposal3')
 OUTF = os.path.join(HERE, '..', 'deliverables', 'Drone_Trg_Complex_44_Div_Proposal_v3.mp4')
-files = sorted(glob.glob(os.path.join(V, 'clip_*.mp4')))
+import re
+# merge split renders clip_XX_name.p0.mp4, .p1.mp4 ... into clip_XX_name.mp4
+parts = {}
+for f in glob.glob(os.path.join(V, 'clip_*.p*.mp4')):
+    m = re.match(r'(.*)\.p(\d+)\.mp4$', f); parts.setdefault(m.group(1), []).append((int(m.group(2)), f))
+for base, lst in parts.items():
+    lst.sort(); lf = base + '.parts.txt'
+    open(lf, 'w').write(''.join("file '%s'\n" % os.path.abspath(f) for _, f in lst))
+    subprocess.run(['ffmpeg', '-y', '-v', 'error', '-f', 'concat', '-safe', '0', '-i', lf, '-c', 'copy', base + '.mp4'], check=True)
+files = sorted(f for f in glob.glob(os.path.join(V, 'clip_*.mp4')) if not re.search(r'\.p\d+\.mp4$', f))
 assert len(files) == 15, files
 durs = [float(subprocess.check_output(['ffprobe', '-v', 'error', '-show_entries', 'format=duration', '-of', 'csv=p=0', f])) for f in files]
 XF = 0.5
